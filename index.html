@@ -1,0 +1,1767 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--
+  콘텐츠 보안 정책(CSP)
+  - 외부 스크립트/스타일/폰트/이미지를 불러오지 않는다.
+  - iframe은 HTTPS 주소만 허용한다.
+  - Trusted Types로 innerHTML 같은 문자열 기반 DOM 삽입을 차단한다.
+  - frame-ancestors는 meta 태그로 지정할 수 없으므로 아래 스크립트에서 별도로 확인한다.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self'; frame-src https:; form-action 'none'; base-uri 'none'; object-src 'none'; require-trusted-types-for 'script'; trusted-types qs-sw">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#11151c">
+<meta name="description" content="크롬북용 개인 웹 작업 공간. 앱 자체는 방문 기록을 저장하지 않습니다.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>QuietSpace</title>
+<style>
+  :root {
+    --bg: #11151c;
+    --bg-elev: #19202a;
+    --bg-elev-2: #212a36;
+    --border: #2e3a49;
+    --text: #e8edf3;
+    --text-dim: #a9b4c2;
+    --accent: #7cc4ff;
+    --accent-strong: #4aa8f0;
+    --accent-text: #08131d;
+    --ok: #7ddc9a;
+    --warn: #ffcf70;
+    --danger: #ff8a8a;
+    --danger-bg: #3a1f24;
+    --warn-bg: #3a3220;
+    --focus: #ffd166;
+    --radius: 14px;
+    --radius-sm: 9px;
+    --shadow: 0 8px 28px rgba(0, 0, 0, .35);
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f6f9;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #eef1f5;
+    --border: #cfd7e1;
+    --text: #18202a;
+    --text-dim: #4b5869;
+    --accent: #0b62b5;
+    --accent-strong: #0a559d;
+    --accent-text: #ffffff;
+    --ok: #17703a;
+    --warn: #7a5300;
+    --danger: #b3261e;
+    --danger-bg: #fbe9e8;
+    --warn-bg: #fff4d6;
+    --focus: #b85c00;
+    --shadow: 0 6px 22px rgba(20, 30, 45, .12);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+  [hidden] { display: none !important; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  button {
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--bg-elev-2);
+    border-radius: var(--radius-sm);
+    padding: .55rem .9rem;
+    min-height: 40px;
+    display: inline-flex; align-items: center; gap: .4rem; justify-content: center;
+  }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-strong); }
+  button.danger { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+  button.ghost { background: transparent; }
+  button.icon-only { padding: .5rem; min-width: 40px; }
+  input[type="text"], input[type="password"], input[type="url"], select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: .6rem .75rem;
+    min-height: 42px;
+  }
+  input:focus-visible, select:focus-visible { border-color: var(--focus); }
+  label { display: block; font-weight: 600; margin: .75rem 0 .3rem; }
+  .hint { color: var(--text-dim); font-size: .9rem; margin: .3rem 0 0; }
+  .msg { min-height: 1.5em; margin: .5rem 0 0; font-size: .95rem; }
+  .msg.error { color: var(--danger); }
+  .msg.ok { color: var(--ok); }
+  .msg.warn { color: var(--warn); }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.2rem;
+  }
+  .card h2 { font-size: 1.05rem; margin: 0 0 .6rem; display: flex; align-items: center; gap: .5rem; }
+  .row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+  .spacer { flex: 1; }
+  details summary { cursor: pointer; font-weight: 600; }
+  details[open] summary { margin-bottom: .4rem; }
+  ul.plain { margin: .3rem 0; padding-left: 1.2rem; }
+  ul.plain li { margin: .2rem 0; }
+  .banner {
+    border-radius: var(--radius-sm);
+    padding: .7rem .9rem;
+    border: 1px solid var(--warn);
+    background: var(--warn-bg);
+    color: var(--text);
+    font-size: .95rem;
+  }
+  .banner.danger { border-color: var(--danger); background: var(--danger-bg); }
+
+  /* ---------- 잠금 화면 ---------- */
+  #lock-screen {
+    min-height: 100%;
+    display: grid; place-items: center;
+    padding: 24px 16px;
+  }
+  .lock-box { width: 100%; max-width: 420px; }
+  .brand { display: flex; align-items: center; gap: .6rem; }
+  .brand svg { width: 34px; height: 34px; flex: none; }
+  .brand-name { font-size: 1.25rem; font-weight: 700; letter-spacing: .01em; }
+  .lock-box .brand { justify-content: center; margin-bottom: 1rem; }
+  .lock-box h1 { font-size: 1.2rem; text-align: center; margin: 0 0 .3rem; }
+  .lock-box .lead { text-align: center; color: var(--text-dim); margin: 0 0 1rem; }
+  .pin-input { font-size: 1.3rem; letter-spacing: .3em; text-align: center; }
+  .lock-actions { margin-top: 1rem; display: grid; gap: .5rem; }
+  .lock-foot { margin-top: 1rem; font-size: .9rem; color: var(--text-dim); }
+
+  /* ---------- 앱 ---------- */
+  #app { min-height: 100%; display: flex; flex-direction: column; }
+  header.topbar {
+    display: flex; align-items: center; gap: .75rem;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elev);
+    position: sticky; top: 0; z-index: 5;
+  }
+  .topbar .actions { margin-left: auto; display: flex; gap: .4rem; }
+  .btn-label { display: inline; }
+  #address-form {
+    display: flex; gap: .5rem;
+    padding: 12px 16px 4px;
+    max-width: 1100px; width: 100%; margin: 0 auto;
+  }
+  #address-form .field { flex: 1; position: relative; }
+  #address-input { padding-left: 2.3rem; min-height: 46px; font-size: 1rem; }
+  #address-form .field svg { position: absolute; left: .7rem; top: 50%; transform: translateY(-50%); color: var(--text-dim); }
+  #address-msg { padding: 0 16px; max-width: 1100px; width: 100%; margin: 0 auto; }
+  main { flex: 1; display: flex; flex-direction: column; width: 100%; }
+  #dashboard {
+    max-width: 1100px; width: 100%; margin: 0 auto;
+    padding: 8px 16px 32px;
+    display: grid; gap: 16px;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    grid-template-areas: "banner banner" "shortcuts policy" "bookmarks policy";
+    grid-template-rows: auto auto 1fr;
+    align-items: start;
+  }
+  #limited-banner { grid-area: banner; }
+  #shortcuts-card { grid-area: shortcuts; }
+  #bookmarks-card { grid-area: bookmarks; }
+  #policy-card { grid-area: policy; }
+  .card-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .6rem; }
+  .card-head h2 { margin: 0; }
+  .card-head .spacer { flex: 1; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: .6rem; }
+  .tile {
+    position: relative;
+    border: 1px solid var(--border);
+    background: var(--bg-elev-2);
+    border-radius: var(--radius-sm);
+    display: flex; flex-direction: column;
+  }
+  .tile .open {
+    border: 0; background: transparent; width: 100%;
+    flex-direction: column; padding: .8rem .5rem .4rem; min-height: 96px;
+  }
+  .tile .open:hover { background: transparent; }
+  .tile:hover { border-color: var(--accent); }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 1.1rem;
+    background: var(--accent); color: var(--accent-text);
+  }
+  .tile .t-title { font-size: .9rem; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile .t-host { font-size: .75rem; color: var(--text-dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile .tools { display: flex; justify-content: center; gap: .2rem; padding: 0 .3rem .4rem; }
+  .tile .tools button, .list .tools button { min-height: 32px; padding: .25rem .45rem; font-size: .8rem; background: transparent; }
+  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+  .list li {
+    display: flex; align-items: center; gap: .6rem;
+    border: 1px solid var(--border); background: var(--bg-elev-2);
+    border-radius: var(--radius-sm); padding: .35rem .5rem;
+  }
+  .list .open { flex: 1; min-width: 0; justify-content: flex-start; border: 0; background: transparent; text-align: left; }
+  .list .open .avatar { width: 30px; height: 30px; border-radius: 9px; font-size: .9rem; }
+  .list .meta { min-width: 0; display: flex; flex-direction: column; }
+  .list .meta .t-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .list .meta .t-host { font-size: .8rem; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .list .tools { display: flex; gap: .2rem; }
+  .empty { color: var(--text-dim); font-size: .95rem; margin: .2rem 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: .35rem; margin: .4rem 0 .6rem; }
+  .chip {
+    font-size: .8rem; border: 1px solid var(--border); border-radius: 999px;
+    padding: .15rem .6rem; background: var(--bg-elev-2);
+  }
+  .chip.ok { color: var(--ok); border-color: var(--ok); }
+  .chip.warn { color: var(--warn); border-color: var(--warn); }
+  #policy-card p, #policy-card li { font-size: .92rem; }
+  #policy-card h3 { font-size: .95rem; margin: .8rem 0 .2rem; }
+
+  /* ---------- 뷰어 ---------- */
+  #viewer { flex: 1; display: flex; flex-direction: column; padding: 8px 16px 16px; gap: 8px; min-height: 0; }
+  .viewer-bar {
+    display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: .4rem .5rem;
+  }
+  #viewer-host { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; padding-left: .3rem; }
+  .viewer-note { font-size: .88rem; }
+  .frame-wrap {
+    position: relative; flex: 1; min-height: 60vh;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; background: #fff;
+  }
+  .frame-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
+  #viewer-loading {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    background: var(--bg-elev); color: var(--text); z-index: 2; text-align: center; padding: 16px;
+  }
+  .spinner {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 4px solid var(--border); border-top-color: var(--accent);
+    animation: spin .9s linear infinite; margin: 0 auto .6rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  /* ---------- 대화상자 ---------- */
+  dialog {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--bg-elev); color: var(--text);
+    padding: 0; width: min(560px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    box-shadow: var(--shadow);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .55); }
+  .dlg-head { display: flex; align-items: center; padding: 1rem 1.2rem .4rem; gap: .5rem; }
+  .dlg-head h2 { margin: 0; font-size: 1.15rem; flex: 1; }
+  .dlg-body { padding: 0 1.2rem 1rem; }
+  .dlg-foot { display: flex; justify-content: flex-end; gap: .5rem; padding: .8rem 1.2rem 1.1rem; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .section { border-top: 1px solid var(--border); padding-top: .8rem; margin-top: 1rem; }
+  .section h3 { margin: 0 0 .3rem; font-size: 1rem; }
+  .check { display: flex; gap: .6rem; align-items: flex-start; font-weight: 400; margin: .6rem 0; }
+  .check input { width: 20px; height: 20px; margin-top: .15rem; flex: none; }
+  .radio-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .radio-row label { display: flex; align-items: center; gap: .4rem; font-weight: 400; margin: .3rem 0; }
+  .radio-row input { width: 18px; height: 18px; }
+  pre.report {
+    white-space: pre-wrap; word-break: break-all;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: .6rem; font-size: .82rem; max-height: 220px; overflow: auto;
+  }
+  #toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    background: var(--bg-elev-2); border: 1px solid var(--border); border-radius: 999px;
+    padding: .55rem 1rem; box-shadow: var(--shadow); z-index: 50; max-width: calc(100vw - 32px);
+  }
+
+  /* ---------- 반응형 ---------- */
+  @media (max-width: 860px) {
+    #dashboard { grid-template-columns: minmax(0, 1fr); grid-template-areas: "banner" "shortcuts" "bookmarks" "policy"; grid-template-rows: none; }
+  }
+  @media (max-width: 560px) {
+    .btn-label { display: none; }
+    .brand-name { font-size: 1.1rem; }
+    #address-form button .btn-label { display: inline; }
+    .frame-wrap { min-height: 55vh; }
+  }
+</style>
+</head>
+<body>
+<noscript>
+  <p style="padding:16px">QuietSpace는 JavaScript가 필요합니다. 브라우저 설정에서 JavaScript를 허용해 주세요.</p>
+</noscript>
+
+<!-- 아이콘 스프라이트 (외부 파일 없이 사용) -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 48 48">
+    <rect x="2" y="2" width="44" height="44" rx="12" fill="#1f6fb2"/>
+    <path d="M14 30c3 4 7 6 10 6s7-2 10-6" stroke="#cfe8ff" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+    <circle cx="24" cy="20" r="7.5" stroke="#ffffff" stroke-width="3.2" fill="none"/>
+  </symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.8 5.8 6.2.9-4.5 4.4 1 6.2L12 17.4l-5.5 2.9 1-6.2L3 9.7l6.2-.9z"/></symbol>
+  <symbol id="i-reload" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></symbol>
+</svg>
+
+<div id="frame-guard" hidden>
+  <p style="padding:16px">보안을 위해 QuietSpace는 다른 웹페이지 안에 삽입된 상태로는 실행되지 않습니다. 주소창에서 직접 열어 주세요.</p>
+</div>
+
+<!-- ===================== 잠금 화면 ===================== -->
+<section id="lock-screen" aria-labelledby="lock-title" hidden>
+  <div class="lock-box">
+    <div class="brand">
+      <svg aria-hidden="true"><use href="#i-logo"/></svg>
+      <span class="brand-name">QuietSpace</span>
+    </div>
+    <div class="card">
+      <h1 id="lock-title">잠금 해제</h1>
+      <p class="lead" id="lock-lead">PIN을 입력하세요.</p>
+
+      <!-- PIN 설정 -->
+      <form id="setup-form" autocomplete="off" hidden novalidate>
+        <label for="setup-pin">새 PIN (숫자 4~12자리)</label>
+        <input id="setup-pin" class="pin-input" type="password" inputmode="numeric" autocomplete="off" maxlength="12" spellcheck="false">
+        <label for="setup-pin2">PIN 확인</label>
+        <input id="setup-pin2" class="pin-input" type="password" inputmode="numeric" autocomplete="off" maxlength="12" spellcheck="false">
+        <p class="hint">PIN은 그대로 저장되지 않고, 임의 salt와 PBKDF2로 계산한 검증값만 이 기기에 저장됩니다. Chrome이 비밀번호 저장을 제안하면 거절해도 됩니다.</p>
+        <p class="msg" id="setup-msg" role="alert" aria-live="assertive"></p>
+        <div class="lock-actions">
+          <button type="submit" class="primary" id="setup-submit">PIN 설정하고 시작</button>
+        </div>
+      </form>
+
+      <!-- PIN 입력 -->
+      <form id="unlock-form" autocomplete="off" hidden novalidate>
+        <label for="unlock-pin" class="sr-only">PIN</label>
+        <input id="unlock-pin" class="pin-input" type="password" inputmode="numeric" autocomplete="off" maxlength="12" spellcheck="false" aria-describedby="unlock-msg">
+        <p class="msg" id="unlock-msg" role="alert" aria-live="assertive"></p>
+        <div class="lock-actions">
+          <button type="submit" class="primary" id="unlock-submit">잠금 해제</button>
+        </div>
+      </form>
+
+      <!-- Web Crypto 사용 불가 + 기존 PIN 존재 -->
+      <div id="unavailable-box" hidden>
+        <p class="banner danger">이 환경에서는 Web Crypto API를 사용할 수 없어 PIN을 확인할 수 없습니다. HTTPS 주소(예: GitHub Pages, Render)로 다시 열어 주세요.</p>
+      </div>
+
+      <div class="lock-foot">
+        <button type="button" class="ghost" id="forgot-btn">PIN을 잊었나요? 저장 데이터 초기화</button>
+        <details style="margin-top:.6rem">
+          <summary>이 잠금이 보호하는 범위</summary>
+          <ul class="plain">
+            <li>이 잠금은 같은 기기를 잠깐 함께 보는 사람이 화면과 즐겨찾기를 바로 보지 못하게 하는 <strong>가벼운 화면 잠금</strong>입니다.</li>
+            <li>강력한 계정 인증이 아닙니다. 짧은 숫자 PIN은 저장소에 접근할 수 있는 사람이 컴퓨터로 짧은 시간에 모두 시도해 볼 수 있습니다.</li>
+            <li>소스 코드 변경, 개발자 도구를 통한 브라우저 저장소 접근, 사이트 데이터 삭제로 우회되거나 초기화될 수 있습니다.</li>
+            <li>Chrome 방문 기록, Google 계정 활동, 학교 기기 관리 및 네트워크 기록에는 아무런 영향을 주지 않습니다.</li>
+          </ul>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 앱 ===================== -->
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="brand">
+      <svg aria-hidden="true"><use href="#i-logo"/></svg>
+      <span class="brand-name">QuietSpace</span>
+    </div>
+    <div class="actions">
+      <button type="button" id="home-btn" title="홈 (대시보드)"><svg class="i" aria-hidden="true"><use href="#i-home"/></svg><span class="btn-label">홈</span></button>
+      <button type="button" id="lock-btn" title="지금 잠그기 (Alt+L)"><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg><span class="btn-label">잠금</span></button>
+      <button type="button" id="settings-btn" title="설정"><svg class="i" aria-hidden="true"><use href="#i-gear"/></svg><span class="btn-label">설정</span></button>
+    </div>
+  </header>
+
+  <form id="address-form" autocomplete="off" novalidate role="search" aria-label="웹 주소로 이동">
+    <div class="field">
+      <svg class="i" aria-hidden="true"><use href="#i-globe"/></svg>
+      <label for="address-input" class="sr-only">웹 주소</label>
+      <input id="address-input" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"
+             placeholder="https://example.com 형식의 주소 입력 ( / 키로 이동)" maxlength="2048" aria-describedby="address-msg">
+    </div>
+    <button type="submit" class="primary"><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg><span class="btn-label">이동</span></button>
+  </form>
+  <p class="msg" id="address-msg" aria-live="polite"></p>
+
+  <main id="main">
+    <!-- 대시보드 -->
+    <div id="dashboard">
+      <div id="limited-banner" class="banner" hidden></div>
+
+      <section class="card" id="shortcuts-card" aria-labelledby="shortcuts-title">
+        <div class="card-head">
+          <h2 id="shortcuts-title"><svg class="i" aria-hidden="true"><use href="#i-grid"/></svg>바로가기</h2>
+          <span class="spacer"></span>
+          <button type="button" id="add-shortcut-btn"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>추가</button>
+        </div>
+        <p class="hint" style="margin:0 0 .6rem">직접 등록한 항목만 표시됩니다. 방문한 사이트가 자동으로 추가되지 않습니다.</p>
+        <div class="tiles" id="shortcut-tiles"></div>
+        <p class="empty" id="shortcut-empty">등록한 바로가기가 없습니다.</p>
+      </section>
+
+      <section class="card" id="bookmarks-card" aria-labelledby="bookmarks-title">
+        <div class="card-head">
+          <h2 id="bookmarks-title"><svg class="i" aria-hidden="true"><use href="#i-star"/></svg>즐겨찾기</h2>
+          <span class="spacer"></span>
+          <button type="button" id="add-bookmark-btn"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>추가</button>
+        </div>
+        <p class="hint" style="margin:0 0 .6rem">“저장” 버튼을 눌러 직접 저장한 주소만 남습니다. 방문 기록이 아닙니다.</p>
+        <ul class="list" id="bookmark-list"></ul>
+        <p class="empty" id="bookmark-empty">저장한 즐겨찾기가 없습니다.</p>
+      </section>
+
+      <aside class="card" id="policy-card" aria-labelledby="policy-title">
+        <h2 id="policy-title"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg>보안 및 저장 정책</h2>
+        <div class="chips" id="status-chips"></div>
+        <h3>이 앱이 하는 일</h3>
+        <ul class="plain">
+          <li>방문한 주소, 검색어, 방문 시간, 페이지 제목을 <strong>자동으로 저장하지 않습니다.</strong></li>
+          <li>현재 주소는 보는 동안에만 메모리에 있고, 잠금·닫기·초기화 시 지웁니다.</li>
+          <li>직접 “저장”한 바로가기·즐겨찾기만 이 기기의 브라우저 저장소에 PIN에서 만든 키로 암호화해 저장합니다.</li>
+          <li>분석 도구, 광고, 추적 코드, 외부 라이브러리를 쓰지 않으며 어떤 서버로도 주소를 보내지 않습니다.</li>
+        </ul>
+        <h3>이 앱이 제어할 수 없는 것</h3>
+        <ul class="plain">
+          <li>Chrome 방문 기록 및 Chrome 동기화</li>
+          <li>Google 계정의 웹 및 앱 활동</li>
+          <li>학교 기기 관리 정책과 네트워크·필터링 기록</li>
+          <li>방문한 사이트가 자체적으로 남기는 기록</li>
+        </ul>
+        <p class="hint">이 앱은 위 기록을 지우거나 막거나 숨기지 않으며, 그렇게 할 수도 없습니다.</p>
+      </aside>
+    </div>
+
+    <!-- 뷰어 -->
+    <section id="viewer" aria-label="웹사이트 보기" hidden>
+      <div class="viewer-bar">
+        <span id="viewer-host" title=""></span>
+        <button type="button" id="viewer-reload" title="다시 불러오기"><svg class="i" aria-hidden="true"><use href="#i-reload"/></svg><span class="btn-label">새로고침</span></button>
+        <button type="button" id="viewer-save" title="이 주소를 즐겨찾기에 직접 저장"><svg class="i" aria-hidden="true"><use href="#i-star"/></svg><span class="btn-label">저장</span></button>
+        <button type="button" id="viewer-newtab" title="확인 후 새 탭에서 열기"><svg class="i" aria-hidden="true"><use href="#i-ext"/></svg><span class="btn-label">새 탭</span></button>
+        <button type="button" id="viewer-close" title="닫고 대시보드로"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg><span class="btn-label">닫기</span></button>
+      </div>
+      <div id="viewer-known-block" class="banner viewer-note" hidden></div>
+      <details class="banner viewer-note" id="viewer-help">
+        <summary>화면이 비어 있거나 “연결을 거부했습니다”가 보이나요?</summary>
+        <ul class="plain">
+          <li>많은 사이트가 보안을 위해 다른 페이지 안(iframe)에 표시되는 것을 막습니다. 브라우저는 이 차단 여부를 이 앱에 알려 주지 않으므로 자동으로 판별할 수 없습니다.</li>
+          <li>대안 1: 사이트가 제공하는 임베드용 주소가 있는지 확인합니다(예: 동영상의 “퍼가기” 주소).</li>
+          <li>대안 2: <strong>새 탭</strong> 버튼으로 직접 엽니다. 이 경우 일반 탐색과 같으므로 <strong>Chrome 방문 기록과 Google 계정 활동에 남을 수 있습니다.</strong></li>
+          <li>대안 3: <button type="button" id="viewer-copy" class="ghost" style="min-height:32px;padding:.2rem .5rem"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg>주소 복사</button> 후 원하는 방법으로 엽니다.</li>
+          <li>iframe 제한: 로그인 유지, 팝업, 다운로드, 알림, 일부 결제·동영상 기능이 작동하지 않을 수 있으며, 뒤로/앞으로 이동 버튼이 없습니다. iframe 안의 클릭·입력은 자동 잠금 타이머의 “활동”으로 감지되지 않습니다.</li>
+        </ul>
+      </details>
+      <div class="frame-wrap" id="frame-wrap">
+        <div id="viewer-loading" role="status" aria-live="polite">
+          <div>
+            <div class="spinner" aria-hidden="true"></div>
+            <p id="viewer-loading-text" style="margin:0">불러오는 중…</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 설정 -->
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <div class="dlg-head">
+      <h2 id="settings-title">설정</h2>
+      <button type="button" class="icon-only ghost" data-close aria-label="설정 닫기"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="dlg-body">
+      <label for="set-theme">화면 테마</label>
+      <select id="set-theme">
+        <option value="dark">다크</option>
+        <option value="light">라이트</option>
+        <option value="system">시스템 설정 따르기</option>
+      </select>
+
+      <label for="set-autolock">자동 잠금 (비활성 시간)</label>
+      <select id="set-autolock">
+        <option value="1">1분</option>
+        <option value="3">3분</option>
+        <option value="5">5분 (기본)</option>
+        <option value="10">10분</option>
+        <option value="15">15분</option>
+      </select>
+
+      <label class="check"><input type="checkbox" id="set-lockhide"><span>다른 탭·창으로 전환하거나 화면이 꺼지면 바로 잠그기</span></label>
+      <label class="check"><input type="checkbox" id="set-credentialless"><span>격리된 iframe 사용 (지원 시) — 사이트가 기존 로그인 쿠키를 받지 않고, 사이트의 저장 데이터는 이 페이지를 닫으면 사라지는 임시 영역에서 동작합니다. Chrome 방문 기록과는 무관합니다.</span></label>
+      <label class="check"><input type="checkbox" id="set-popups"><span>iframe 안의 사이트가 새 창(팝업)을 열도록 허용 — 켜면 사이트가 연 새 창은 일반 탐색이 되어 Chrome 방문 기록에 남을 수 있습니다.</span></label>
+
+      <div class="section" id="pin-section">
+        <h3>PIN 변경</h3>
+        <form id="pin-change-form" autocomplete="off" novalidate>
+          <label for="pc-current">현재 PIN</label>
+          <input id="pc-current" type="password" inputmode="numeric" autocomplete="off" maxlength="12">
+          <label for="pc-new">새 PIN (숫자 4~12자리)</label>
+          <input id="pc-new" type="password" inputmode="numeric" autocomplete="off" maxlength="12">
+          <label for="pc-new2">새 PIN 확인</label>
+          <input id="pc-new2" type="password" inputmode="numeric" autocomplete="off" maxlength="12">
+          <p class="msg" id="pc-msg" role="alert" aria-live="assertive"></p>
+          <button type="submit" id="pc-submit">PIN 변경</button>
+        </form>
+      </div>
+
+      <div class="section">
+        <h3>저장 데이터 점검</h3>
+        <p class="hint">이 사이트가 브라우저에 저장한 항목 이름과 크기를 보여 주고, 암호화되지 않은 웹 주소가 들어 있는지 확인합니다.</p>
+        <button type="button" id="storage-check-btn" style="margin-top:.5rem">지금 점검</button>
+        <pre class="report" id="storage-report" hidden></pre>
+      </div>
+
+      <div class="section">
+        <h3>보안상 한계</h3>
+        <ul class="plain">
+          <li>PIN 잠금은 화면 가림용 가벼운 보호이며 계정 인증이 아닙니다.</li>
+          <li>즐겨찾기는 PIN에서 PBKDF2로 만든 키(AES-GCM)로 암호화되지만, 숫자 PIN은 경우의 수가 적어 저장소를 복사한 사람이 오프라인으로 추측할 수 있습니다.</li>
+          <li>코드 변경, 개발자 도구, 확장 프로그램, 사이트 데이터 삭제로 우회·초기화될 수 있습니다.</li>
+          <li>Chrome 기록, Google 계정 활동, 학교 관리 기록에는 영향을 주지 않습니다.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h3>초기화</h3>
+        <p class="hint">PIN, 저장한 바로가기·즐겨찾기, 앱 설정, 오프라인 캐시를 이 기기에서 삭제합니다. 되돌릴 수 없습니다.</p>
+        <button type="button" class="danger" id="reset-btn" style="margin-top:.5rem">모든 저장 데이터 초기화</button>
+      </div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" data-close>닫기</button>
+    </div>
+  </dialog>
+
+  <!-- 바로가기/즐겨찾기 추가·수정 -->
+  <dialog id="item-dialog" aria-labelledby="item-title">
+    <form id="item-form" autocomplete="off" novalidate>
+      <div class="dlg-head">
+        <h2 id="item-title">항목 추가</h2>
+      </div>
+      <div class="dlg-body">
+        <p class="hint" id="item-storage-note"></p>
+        <label for="item-name">이름</label>
+        <input id="item-name" type="text" maxlength="60" autocomplete="off" spellcheck="false">
+        <label for="item-url">주소</label>
+        <input id="item-url" type="text" inputmode="url" maxlength="2048" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://">
+        <fieldset style="border:0;padding:0;margin:.8rem 0 0">
+          <legend style="font-weight:600">표시 위치</legend>
+          <div class="radio-row">
+            <label><input type="radio" name="item-kind" value="shortcut">바로가기 (타일)</label>
+            <label><input type="radio" name="item-kind" value="bookmark">즐겨찾기 (목록)</label>
+          </div>
+        </fieldset>
+        <p class="msg" id="item-msg" role="alert" aria-live="assertive"></p>
+      </div>
+      <div class="dlg-foot">
+        <button type="button" data-close>취소</button>
+        <button type="submit" class="primary">저장</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+
+<!-- 공통 확인 대화상자 (잠금 화면에서도 사용하므로 #app 밖에 둔다) -->
+<dialog id="confirm-dialog" aria-labelledby="confirm-title">
+  <form id="confirm-form" autocomplete="off" novalidate>
+    <div class="dlg-head"><h2 id="confirm-title">확인</h2></div>
+    <div class="dlg-body">
+      <p id="confirm-message" style="white-space:pre-line"></p>
+      <div id="confirm-type-wrap" hidden>
+        <label for="confirm-type" id="confirm-type-label"></label>
+        <input id="confirm-type" type="text" autocomplete="off" spellcheck="false">
+      </div>
+      <p class="msg error" id="confirm-msg" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" id="confirm-cancel">취소</button>
+      <button type="submit" class="primary" id="confirm-ok">확인</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* =========================================================
+   * 상수
+   * ======================================================= */
+  const STORE_KEY = 'quietspace:v1';
+  const STORAGE_PREFIX = 'quietspace';
+  const CACHE_PREFIX = 'quietspace-';
+  const PBKDF2_ITERATIONS = 310000;
+  const PIN_PATTERN = /^\d{4,12}$/;
+  const FREE_ATTEMPTS = 5;
+  const BASE_DELAY_MS = 30 * 1000;
+  const MAX_DELAY_MS = 15 * 60 * 1000;
+  const IDLE_CHECK_MS = 10 * 1000;
+  const FRAME_SLOW_MS = 12 * 1000;
+  const MAX_ITEMS = 100;
+  const MAX_URL_LENGTH = 2048;
+  const ALLOWED_AUTOLOCK = [1, 3, 5, 10, 15];
+
+  // iframe 표시를 막는 것으로 널리 알려진 사이트 (안내용 참고 목록이며 정확하지 않을 수 있음)
+  const KNOWN_FRAME_BLOCKERS = [
+    'google.com', 'github.com', 'facebook.com', 'instagram.com', 'x.com', 'twitter.com',
+    'linkedin.com', 'discord.com', 'chatgpt.com', 'claude.ai'
+  ];
+
+  /* =========================================================
+   * 메모리 상태 (방문 주소는 여기에만, 잠시 보관)
+   * ======================================================= */
+  const state = {
+    mode: 'secure',          // 'secure' | 'limited'
+    limitedReasons: [],
+    store: null,             // 저장소에서 읽은 설정·PIN 검증값·암호문
+    unlocked: false,
+    key: null,               // AES-GCM CryptoKey (추출 불가, 메모리 전용)
+    items: [],               // 복호화된 바로가기/즐겨찾기
+    currentUrl: null,        // 현재 보고 있는 주소 (메모리 전용)
+    busy: false,
+    lastActivity: Date.now(),
+    idleTimer: null,
+    lockoutTimer: null,
+    frameSlowTimer: null,
+    toastTimer: null,
+    editingId: null,
+    swActive: false
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  /* =========================================================
+   * 저장소
+   * ======================================================= */
+  function defaultStore() {
+    return {
+      v: 1,
+      settings: { theme: 'dark', autoLockMin: 5, lockOnHide: false, allowPopups: false, credentialless: true },
+      pin: null,     // { salt, iter, verifier }
+      vault: null,   // { iv, ct }
+      guard: { fails: 0, until: 0 }
+    };
+  }
+
+  function storageWorks() {
+    try {
+      const probe = STORAGE_PREFIX + ':probe';
+      localStorage.setItem(probe, '1');
+      localStorage.removeItem(probe);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function readStore() {
+    const base = defaultStore();
+    let raw = null;
+    try { raw = localStorage.getItem(STORE_KEY); } catch (e) { return base; }
+    if (!raw) return base;
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return base;
+      const s = parsed.settings || {};
+      base.settings.theme = ['dark', 'light', 'system'].includes(s.theme) ? s.theme : 'dark';
+      base.settings.autoLockMin = ALLOWED_AUTOLOCK.includes(s.autoLockMin) ? s.autoLockMin : 5;
+      base.settings.lockOnHide = s.lockOnHide === true;
+      base.settings.allowPopups = s.allowPopups === true;
+      base.settings.credentialless = s.credentialless !== false;
+      const p = parsed.pin;
+      if (p && typeof p.salt === 'string' && typeof p.verifier === 'string' && Number.isInteger(p.iter) && p.iter >= 100000) {
+        base.pin = { salt: p.salt, iter: p.iter, verifier: p.verifier };
+      }
+      const vlt = parsed.vault;
+      if (vlt && typeof vlt.iv === 'string' && typeof vlt.ct === 'string') base.vault = { iv: vlt.iv, ct: vlt.ct };
+      const g = parsed.guard || {};
+      base.guard.fails = Number.isInteger(g.fails) && g.fails >= 0 ? g.fails : 0;
+      base.guard.until = typeof g.until === 'number' && g.until > 0 ? g.until : 0;
+      return base;
+    } catch (e) {
+      return base;
+    }
+  }
+
+  function writeStore() {
+    if (state.mode !== 'secure') return false;
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state.store));
+      return true;
+    } catch (e) {
+      showToast('저장하지 못했습니다. 브라우저 저장 공간을 확인해 주세요.');
+      return false;
+    }
+  }
+
+  async function clearAllAppData() {
+    try {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(STORAGE_PREFIX)) keys.push(k);
+      }
+      keys.forEach((k) => localStorage.removeItem(k));
+    } catch (e) { /* 저장소 접근 불가 시 무시 */ }
+    try { sessionStorage.clear(); } catch (e) { /* 무시 */ }
+    try {
+      if ('caches' in window) {
+        const names = await caches.keys();
+        await Promise.all(names.filter((n) => n.startsWith(CACHE_PREFIX)).map((n) => caches.delete(n)));
+      }
+    } catch (e) { /* 무시 */ }
+  }
+
+  /* =========================================================
+   * 암호화 (Web Crypto)
+   * ======================================================= */
+  function hasWebCrypto() {
+    return !!(window.isSecureContext && window.crypto && window.crypto.subtle && window.crypto.getRandomValues);
+  }
+
+  function randomBytes(n) {
+    const a = new Uint8Array(n);
+    crypto.getRandomValues(a);
+    return a;
+  }
+
+  function b64encode(bytes) {
+    let s = '';
+    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  }
+
+  function b64decode(str) {
+    const s = atob(str);
+    const out = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+    return out;
+  }
+
+  // PIN에서 512비트를 유도: 앞 256비트는 검증값, 뒤 256비트는 AES-GCM 키
+  async function deriveFromPin(pin, saltBytes, iterations) {
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveBits']);
+    const bits = new Uint8Array(await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', hash: 'SHA-256', salt: saltBytes, iterations },
+      base, 512
+    ));
+    const verifier = bits.slice(0, 32);
+    const key = await crypto.subtle.importKey('raw', bits.slice(32, 64), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+    bits.fill(0);
+    return { verifier, key };
+  }
+
+  function timingSafeEqual(a, b) {
+    if (a.length !== b.length) return false;
+    let diff = 0;
+    for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+    return diff === 0;
+  }
+
+  async function encryptJSON(key, obj) {
+    const iv = randomBytes(12);
+    const data = new TextEncoder().encode(JSON.stringify(obj));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data));
+    return { iv: b64encode(iv), ct: b64encode(ct) };
+  }
+
+  async function decryptJSON(key, vault) {
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64decode(vault.iv) }, key, b64decode(vault.ct));
+    return JSON.parse(new TextDecoder().decode(plain));
+  }
+
+  function newId() {
+    if (window.crypto && typeof crypto.randomUUID === 'function' && window.isSecureContext) return crypto.randomUUID();
+    return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  }
+
+  /* =========================================================
+   * PIN
+   * ======================================================= */
+  function validateNewPin(pin, confirmPin) {
+    if (!PIN_PATTERN.test(pin)) return 'PIN은 숫자 4~12자리여야 합니다.';
+    if (/^(\d)\1+$/.test(pin)) return '같은 숫자만 반복한 PIN은 사용할 수 없습니다.';
+    if ('0123456789012'.includes(pin) || '9876543210987'.includes(pin)) return '연속된 숫자 PIN은 사용할 수 없습니다.';
+    if (pin !== confirmPin) return '두 PIN이 서로 다릅니다.';
+    return '';
+  }
+
+  async function createPinRecord(pin) {
+    const salt = randomBytes(16);
+    const { verifier, key } = await deriveFromPin(pin, salt, PBKDF2_ITERATIONS);
+    return { record: { salt: b64encode(salt), iter: PBKDF2_ITERATIONS, verifier: b64encode(verifier) }, key };
+  }
+
+  // 성공 시 CryptoKey, 실패 시 null
+  async function verifyPin(pin) {
+    const rec = state.store.pin;
+    if (!rec || !PIN_PATTERN.test(pin)) return null;
+    const { verifier, key } = await deriveFromPin(pin, b64decode(rec.salt), rec.iter);
+    return timingSafeEqual(verifier, b64decode(rec.verifier)) ? key : null;
+  }
+
+  /* ---------- 재시도 제한 ---------- */
+  function lockoutRemainingMs() {
+    const until = state.store.guard.until;
+    return until > Date.now() ? until - Date.now() : 0;
+  }
+
+  function registerFailure() {
+    const g = state.store.guard;
+    g.fails += 1;
+    if (g.fails >= FREE_ATTEMPTS) {
+      const delay = Math.min(BASE_DELAY_MS * Math.pow(2, g.fails - FREE_ATTEMPTS), MAX_DELAY_MS);
+      g.until = Date.now() + delay;
+    }
+    writeStore();
+  }
+
+  function resetFailures() {
+    state.store.guard = { fails: 0, until: 0 };
+    writeStore();
+  }
+
+  function formatWait(ms) {
+    const sec = Math.ceil(ms / 1000);
+    if (sec < 60) return sec + '초';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return s ? m + '분 ' + s + '초' : m + '분';
+  }
+
+  /* =========================================================
+   * 잠금 화면
+   * ======================================================= */
+  function showLockScreen(mode) {
+    $('app').hidden = true;
+    $('lock-screen').hidden = false;
+    $('setup-form').hidden = mode !== 'setup';
+    $('unlock-form').hidden = mode !== 'unlock';
+    $('unavailable-box').hidden = mode !== 'unavailable';
+    $('forgot-btn').hidden = mode === 'setup';
+    if (mode === 'setup') {
+      $('lock-title').textContent = '처음 사용 설정';
+      $('lock-lead').textContent = '이 기기에서 QuietSpace를 잠글 PIN을 만들어 주세요.';
+      clearInputs(['setup-pin', 'setup-pin2']);
+      setMsg('setup-msg', '');
+      $('setup-pin').focus();
+    } else if (mode === 'unlock') {
+      $('lock-title').textContent = '잠금 해제';
+      $('lock-lead').textContent = 'PIN을 입력하세요.';
+      clearInputs(['unlock-pin']);
+      setMsg('unlock-msg', '');
+      updateLockoutUi();
+      if (!$('unlock-pin').disabled) $('unlock-pin').focus();
+    } else {
+      $('lock-title').textContent = '잠금 해제할 수 없음';
+      $('lock-lead').textContent = '';
+    }
+  }
+
+  function updateLockoutUi() {
+    clearInterval(state.lockoutTimer);
+    state.lockoutTimer = null;
+    const tick = () => {
+      const remain = lockoutRemainingMs();
+      const blocked = remain > 0;
+      $('unlock-pin').disabled = blocked;
+      $('unlock-submit').disabled = blocked || state.busy;
+      if (blocked) {
+        setMsg('unlock-msg', '입력 시도가 많습니다. ' + formatWait(remain) + ' 후 다시 시도하세요.', 'warn');
+      } else if (state.lockoutTimer) {
+        clearInterval(state.lockoutTimer);
+        state.lockoutTimer = null;
+        setMsg('unlock-msg', '');
+        $('unlock-pin').focus();
+      }
+      return blocked;
+    };
+    if (tick()) state.lockoutTimer = setInterval(tick, 1000);
+  }
+
+  async function handleSetupSubmit(ev) {
+    ev.preventDefault();
+    if (state.busy) return;
+    const pin = $('setup-pin').value;
+    const pin2 = $('setup-pin2').value;
+    const problem = validateNewPin(pin, pin2);
+    if (problem) { setMsg('setup-msg', problem, 'error'); return; }
+    setBusy(true, 'setup-submit', '설정 중…');
+    try {
+      const { record, key } = await createPinRecord(pin);
+      state.store.pin = record;
+      state.store.guard = { fails: 0, until: 0 };
+      state.key = key;
+      state.items = [];
+      state.store.vault = await encryptJSON(key, { items: [] });
+      if (!writeStore()) throw new Error('store');
+      clearInputs(['setup-pin', 'setup-pin2']);
+      enterApp();
+    } catch (e) {
+      state.store.pin = null;
+      state.key = null;
+      setMsg('setup-msg', 'PIN을 설정하지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.', 'error');
+    } finally {
+      setBusy(false, 'setup-submit', 'PIN 설정하고 시작');
+    }
+  }
+
+  async function handleUnlockSubmit(ev) {
+    ev.preventDefault();
+    if (state.busy || lockoutRemainingMs() > 0) return;
+    const pin = $('unlock-pin').value;
+    $('unlock-pin').value = '';
+    if (!pin) { setMsg('unlock-msg', 'PIN을 입력하세요.', 'error'); return; }
+    setBusy(true, 'unlock-submit', '확인 중…');
+    let key = null;
+    try { key = await verifyPin(pin); } catch (e) { key = null; }
+    if (!key) {
+      registerFailure();
+      setBusy(false, 'unlock-submit', '잠금 해제');
+      setMsg('unlock-msg', 'PIN이 올바르지 않습니다.', 'error');
+      updateLockoutUi();
+      if (!$('unlock-pin').disabled) $('unlock-pin').focus();
+      return;
+    }
+    try {
+      const data = state.store.vault ? await decryptJSON(key, state.store.vault) : { items: [] };
+      state.items = sanitizeItems(data && data.items);
+    } catch (e) {
+      setBusy(false, 'unlock-submit', '잠금 해제');
+      setMsg('unlock-msg', '저장된 즐겨찾기를 읽을 수 없습니다. 데이터가 손상되었다면 초기화가 필요할 수 있습니다.', 'error');
+      return;
+    }
+    resetFailures();
+    state.key = key;
+    setBusy(false, 'unlock-submit', '잠금 해제');
+    enterApp();
+  }
+
+  function setBusy(on, btnId, label) {
+    state.busy = on;
+    const btn = $(btnId);
+    btn.disabled = on;
+    btn.textContent = label;
+  }
+
+  /* =========================================================
+   * 세션 (잠금/해제)
+   * ======================================================= */
+  function enterApp() {
+    state.unlocked = true;
+    clearInterval(state.lockoutTimer);
+    state.lockoutTimer = null;
+    $('lock-screen').hidden = true;
+    $('app').hidden = false;
+    $('lock-btn').disabled = state.mode !== 'secure';
+    $('lock-btn').title = state.mode === 'secure' ? '지금 잠그기 (Alt+L)' : '이 환경에서는 PIN 잠금을 사용할 수 없습니다';
+    $('pin-section').hidden = state.mode !== 'secure';
+    renderLimitedBanner();
+    renderStatusChips();
+    renderItems();
+    showDashboard();
+    markActivity();
+    startIdleWatch();
+    $('address-input').focus();
+  }
+
+  function lockApp() {
+    if (state.mode !== 'secure' || !state.store.pin) return;
+    // 열려 있는 모든 대화상자 닫기
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    // 현재 콘텐츠와 입력값 비우기
+    destroyFrame();
+    state.currentUrl = null;
+    $('viewer').hidden = true;
+    $('dashboard').hidden = false;
+    $('address-input').value = '';
+    setMsg('address-msg', '');
+    clearInputs(['item-name', 'item-url', 'pc-current', 'pc-new', 'pc-new2']);
+    $('storage-report').hidden = true;
+    $('storage-report').textContent = '';
+    // 복호화된 데이터와 키를 메모리에서 제거
+    state.items = [];
+    state.key = null;
+    state.unlocked = false;
+    clearChildren($('shortcut-tiles'));
+    clearChildren($('bookmark-list'));
+    stopIdleWatch();
+    hideToast();
+    showLockScreen('unlock');
+  }
+
+  /* ---------- 비활성 자동 잠금 ---------- */
+  function markActivity() {
+    state.lastActivity = Date.now();
+  }
+
+  function checkIdle() {
+    if (!state.unlocked) return;
+    const limit = state.store.settings.autoLockMin * 60 * 1000;
+    if (Date.now() - state.lastActivity >= limit) lockApp();
+  }
+
+  function startIdleWatch() {
+    stopIdleWatch();
+    if (state.mode !== 'secure') return;
+    state.idleTimer = setInterval(checkIdle, IDLE_CHECK_MS);
+  }
+
+  function stopIdleWatch() {
+    clearInterval(state.idleTimer);
+    state.idleTimer = null;
+  }
+
+  /* =========================================================
+   * 주소 검증
+   * ======================================================= */
+  const BLOCKED_SCHEMES = /^(javascript|data|vbscript|file|blob|about|chrome|chrome-extension|chrome-untrusted|edge|filesystem|view-source|intent|ws|wss|ftp|mailto|tel|sms)\s*:/i;
+
+  // 성공: { url, notice }, 실패: { error }
+  function normalizeUserUrl(input) {
+    let text = String(input || '').trim();
+    if (!text) return { error: '주소를 입력하세요.' };
+    if (text.length > MAX_URL_LENGTH) return { error: '주소가 너무 깁니다.' };
+    if (/[\u0000-\u001f\u007f\s]/.test(text)) return { error: '주소에 공백이나 제어 문자가 포함될 수 없습니다. 검색어는 지원하지 않으니 웹 주소를 입력해 주세요.' };
+    if (BLOCKED_SCHEMES.test(text)) return { error: '지원하지 않는 프로토콜입니다. https:// 주소만 사용할 수 있습니다.' };
+
+    let notice = '';
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) {
+      // 프로토콜이 명시된 경우
+    } else if (/^\/\//.test(text)) {
+      text = 'https:' + text;
+    } else {
+      const m = /^([a-z][a-z0-9+.-]*):(.*)$/i.exec(text);
+      if (m && !m[1].includes('.') && !/^\d/.test(m[2]) && m[1].toLowerCase() !== 'localhost') {
+        return { error: '지원하지 않는 프로토콜입니다. https:// 주소만 사용할 수 있습니다.' };
+      }
+      text = 'https://' + text;
+    }
+
+    let u;
+    try { u = new URL(text); } catch (e) { return { error: '올바른 웹 주소 형식이 아닙니다. 예: https://example.com' }; }
+
+    if (u.protocol === 'http:') {
+      u.protocol = 'https:';
+      notice = 'HTTPS 페이지 안에서는 HTTP 콘텐츠를 표시할 수 없어 HTTPS 주소로 바꿨습니다.';
+    } else if (u.protocol !== 'https:') {
+      return { error: '지원하지 않는 프로토콜입니다. https:// 주소만 사용할 수 있습니다.' };
+    }
+    if (u.username || u.password) return { error: '사용자 이름이나 비밀번호가 포함된 주소는 사용할 수 없습니다.' };
+
+    const host = u.hostname;
+    const isIPv6 = host.startsWith('[') && host.endsWith(']');
+    if (!isIPv6) {
+      if (!/^[a-z0-9.-]+$/.test(host)) return { error: '올바른 도메인이 아닙니다.' };
+      const labels = host.split('.');
+      if (host !== 'localhost' && labels.length < 2) return { error: '올바른 도메인이 아닙니다. 예: example.com' };
+      if (labels.some((l) => !l || l.length > 63 || l.startsWith('-') || l.endsWith('-'))) return { error: '올바른 도메인이 아닙니다.' };
+    }
+    if ((location.protocol === 'https:' || location.protocol === 'http:') && u.origin === location.origin) {
+      return { error: 'QuietSpace 자신의 주소는 안에서 열 수 없습니다.' };
+    }
+    return { url: u.href, notice };
+  }
+
+  function hostOf(url) {
+    try { return new URL(url).hostname; } catch (e) { return ''; }
+  }
+
+  function isKnownFrameBlocker(url) {
+    let u;
+    try { u = new URL(url); } catch (e) { return false; }
+    const h = u.hostname;
+    if (h === 'www.youtube.com' || h === 'youtube.com' || h === 'm.youtube.com') return !u.pathname.startsWith('/embed/');
+    return KNOWN_FRAME_BLOCKERS.some((d) => h === d || h.endsWith('.' + d));
+  }
+
+  function youtubeEmbedFor(url) {
+    let u;
+    try { u = new URL(url); } catch (e) { return null; }
+    let id = null;
+    if (['www.youtube.com', 'youtube.com', 'm.youtube.com'].includes(u.hostname)) {
+      if (u.pathname === '/watch') id = u.searchParams.get('v');
+      else if (u.pathname.startsWith('/shorts/')) id = u.pathname.split('/')[2];
+    } else if (u.hostname === 'youtu.be') {
+      id = u.pathname.slice(1);
+    }
+    return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? 'https://www.youtube-nocookie.com/embed/' + id : null;
+  }
+
+  /* =========================================================
+   * 뷰어 (iframe)
+   * ======================================================= */
+  function sandboxTokens() {
+    const t = ['allow-scripts', 'allow-same-origin', 'allow-forms'];
+    if (state.store.settings.allowPopups) t.push('allow-popups', 'allow-popups-to-escape-sandbox');
+    // allow-top-navigation 은 넣지 않는다: 사이트가 QuietSpace 자체 주소를 바꾸지 못하게 함
+    return t.join(' ');
+  }
+
+  function credentiallessSupported() {
+    return 'credentialless' in HTMLIFrameElement.prototype;
+  }
+
+  function destroyFrame() {
+    clearTimeout(state.frameSlowTimer);
+    state.frameSlowTimer = null;
+    const old = $('frame-wrap').querySelector('iframe');
+    if (old) old.remove();
+  }
+
+  function openInViewer(url) {
+    destroyFrame();
+    state.currentUrl = url;
+
+    $('dashboard').hidden = true;
+    $('viewer').hidden = false;
+    const host = hostOf(url);
+    $('viewer-host').textContent = host;
+    $('viewer-host').title = url;
+    $('viewer-help').open = false;
+    renderKnownBlockNotice(url);
+
+    $('viewer-loading').hidden = false;
+    $('viewer-loading-text').textContent = '불러오는 중…';
+
+    const frame = document.createElement('iframe');
+    frame.title = host + ' 페이지';
+    frame.setAttribute('sandbox', sandboxTokens());
+    frame.setAttribute('referrerpolicy', 'no-referrer');
+    frame.setAttribute('allow', 'fullscreen');
+    frame.setAttribute('loading', 'eager');
+    if (state.store.settings.credentialless && credentiallessSupported()) frame.credentialless = true;
+    frame.addEventListener('load', onFrameLoad, { once: true });
+    frame.src = url;
+    $('frame-wrap').appendChild(frame);
+
+    state.frameSlowTimer = setTimeout(() => {
+      $('viewer-loading-text').textContent = '응답이 늦습니다. 사이트가 iframe 표시를 차단했거나 네트워크가 느릴 수 있습니다. 자동으로 다시 시도하지 않습니다.';
+      $('viewer-help').open = true;
+      setTimeout(() => { if (state.currentUrl === url) $('viewer-loading').hidden = true; }, 4000);
+    }, FRAME_SLOW_MS);
+  }
+
+  function onFrameLoad() {
+    // 교차 출처 페이지의 내용은 읽을 수 없으므로(그리고 읽으려 하지 않으므로) 성공 여부는 알 수 없다.
+    clearTimeout(state.frameSlowTimer);
+    state.frameSlowTimer = null;
+    $('viewer-loading').hidden = true;
+  }
+
+  function renderKnownBlockNotice(url) {
+    const box = $('viewer-known-block');
+    clearChildren(box);
+    const embed = youtubeEmbedFor(url);
+    if (!isKnownFrameBlocker(url) && !embed) { box.hidden = true; return; }
+    box.hidden = false;
+    box.appendChild(document.createTextNode(
+      '이 사이트는 다른 페이지 안에 표시되는 것을 허용하지 않는 것으로 알려져 있어 빈 화면이나 오류가 보일 수 있습니다. '
+    ));
+    if (embed) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ghost';
+      b.style.minHeight = '32px';
+      b.textContent = '동영상 임베드 플레이어로 열기';
+      b.addEventListener('click', () => { navigateTo(embed); });
+      box.appendChild(b);
+    }
+  }
+
+  function closeViewer() {
+    destroyFrame();
+    state.currentUrl = null;
+    $('address-input').value = '';
+    setMsg('address-msg', '');
+    showDashboard();
+  }
+
+  function showDashboard() {
+    $('viewer').hidden = true;
+    $('dashboard').hidden = false;
+  }
+
+  function navigateTo(rawInput) {
+    const res = normalizeUserUrl(rawInput);
+    if (res.error) {
+      setMsg('address-msg', res.error, 'error');
+      $('address-input').focus();
+      return;
+    }
+    setMsg('address-msg', res.notice || '', res.notice ? 'warn' : '');
+    $('address-input').value = res.url;
+    openInViewer(res.url);
+  }
+
+  async function openInNewTab() {
+    const url = state.currentUrl;
+    if (!url) return;
+    const ok = await confirmAction({
+      title: '새 탭에서 열기',
+      message: hostOf(url) + ' 을(를) 새 탭에서 엽니다.\n\n새 탭은 일반 탐색과 같아서 Chrome 방문 기록, 동기화된 Google 계정 활동, 학교 관리·네트워크 기록에 남을 수 있습니다. QuietSpace는 이를 막을 수 없습니다.',
+      confirmLabel: '새 탭에서 열기'
+    });
+    if (ok) window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  async function copyCurrentUrl() {
+    if (!state.currentUrl) return;
+    try {
+      await navigator.clipboard.writeText(state.currentUrl);
+      showToast('주소를 클립보드에 복사했습니다.');
+    } catch (e) {
+      showToast('복사할 수 없습니다. 주소 입력창에서 직접 복사해 주세요.');
+    }
+  }
+
+  /* =========================================================
+   * 바로가기 / 즐겨찾기 (사용자가 직접 저장한 항목만)
+   * ======================================================= */
+  function sanitizeItems(list) {
+    if (!Array.isArray(list)) return [];
+    const out = [];
+    for (const it of list) {
+      if (!it || typeof it !== 'object') continue;
+      const kind = it.kind === 'shortcut' ? 'shortcut' : 'bookmark';
+      const title = typeof it.title === 'string' ? it.title.slice(0, 60) : '';
+      const res = normalizeUserUrl(it.url);
+      if (res.error || !title) continue;
+      out.push({ id: typeof it.id === 'string' ? it.id : newId(), kind, title, url: res.url });
+      if (out.length >= MAX_ITEMS) break;
+    }
+    return out;
+  }
+
+  async function persistItems() {
+    if (state.mode !== 'secure') return true; // 제한 모드: 메모리에만 보관
+    if (!state.key) return false;
+    try {
+      state.store.vault = await encryptJSON(state.key, { items: state.items });
+      return writeStore();
+    } catch (e) {
+      showToast('즐겨찾기를 저장하지 못했습니다.');
+      return false;
+    }
+  }
+
+  function renderItems() {
+    const tiles = $('shortcut-tiles');
+    const list = $('bookmark-list');
+    clearChildren(tiles);
+    clearChildren(list);
+    const shortcuts = state.items.filter((i) => i.kind === 'shortcut');
+    const bookmarks = state.items.filter((i) => i.kind === 'bookmark');
+    shortcuts.forEach((it) => tiles.appendChild(buildTile(it)));
+    bookmarks.forEach((it) => list.appendChild(buildRow(it)));
+    $('shortcut-empty').hidden = shortcuts.length > 0;
+    $('bookmark-empty').hidden = bookmarks.length > 0;
+  }
+
+  function buildAvatar(title) {
+    const a = document.createElement('span');
+    a.className = 'avatar';
+    a.setAttribute('aria-hidden', 'true');
+    a.textContent = (Array.from(title.trim())[0] || '?').toUpperCase();
+    return a;
+  }
+
+  function buildToolButtons(it) {
+    const tools = document.createElement('div');
+    tools.className = 'tools';
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.textContent = '수정';
+    edit.setAttribute('aria-label', it.title + ' 수정');
+    edit.addEventListener('click', () => openItemDialog(it.kind, it));
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.textContent = '삭제';
+    del.setAttribute('aria-label', it.title + ' 삭제');
+    del.addEventListener('click', () => deleteItem(it));
+    tools.append(edit, del);
+    return tools;
+  }
+
+  function buildTile(it) {
+    const wrap = document.createElement('div');
+    wrap.className = 'tile';
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'open';
+    open.title = it.url;
+    const t = document.createElement('span');
+    t.className = 't-title';
+    t.textContent = it.title;
+    const h = document.createElement('span');
+    h.className = 't-host';
+    h.textContent = hostOf(it.url);
+    open.append(buildAvatar(it.title), t, h);
+    open.addEventListener('click', () => navigateTo(it.url));
+    wrap.append(open, buildToolButtons(it));
+    return wrap;
+  }
+
+  function buildRow(it) {
+    const li = document.createElement('li');
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'open';
+    open.title = it.url;
+    const meta = document.createElement('span');
+    meta.className = 'meta';
+    const t = document.createElement('span');
+    t.className = 't-title';
+    t.textContent = it.title;
+    const h = document.createElement('span');
+    h.className = 't-host';
+    h.textContent = hostOf(it.url);
+    meta.append(t, h);
+    open.append(buildAvatar(it.title), meta);
+    open.addEventListener('click', () => navigateTo(it.url));
+    li.append(open, buildToolButtons(it));
+    return li;
+  }
+
+  function openItemDialog(kind, existing, presetUrl) {
+    state.editingId = existing ? existing.id : null;
+    $('item-title').textContent = existing ? '항목 수정' : (kind === 'shortcut' ? '바로가기 추가' : '즐겨찾기 추가');
+    $('item-name').value = existing ? existing.title : (presetUrl ? hostOf(presetUrl) : '');
+    $('item-url').value = existing ? existing.url : (presetUrl || '');
+    document.querySelectorAll('input[name="item-kind"]').forEach((r) => { r.checked = r.value === kind; });
+    $('item-storage-note').textContent = state.mode === 'secure'
+      ? '저장을 누르면 이 항목만 이 기기에 암호화되어 저장됩니다. 방문 기록과는 별개입니다.'
+      : '제한 모드: 이 항목은 메모리에만 보관되며 페이지를 닫으면 사라집니다.';
+    setMsg('item-msg', '');
+    $('item-dialog').showModal();
+    $('item-name').focus();
+  }
+
+  async function saveItemFromDialog(ev) {
+    ev.preventDefault();
+    const title = $('item-name').value.trim();
+    const kindInput = document.querySelector('input[name="item-kind"]:checked');
+    const kind = kindInput && kindInput.value === 'shortcut' ? 'shortcut' : 'bookmark';
+    if (!title) { setMsg('item-msg', '이름을 입력하세요.', 'error'); $('item-name').focus(); return; }
+    const res = normalizeUserUrl($('item-url').value);
+    if (res.error) { setMsg('item-msg', res.error, 'error'); $('item-url').focus(); return; }
+    if (state.editingId) {
+      const it = state.items.find((i) => i.id === state.editingId);
+      if (it) { it.title = title.slice(0, 60); it.url = res.url; it.kind = kind; }
+    } else {
+      if (state.items.length >= MAX_ITEMS) { setMsg('item-msg', '최대 ' + MAX_ITEMS + '개까지 저장할 수 있습니다.', 'error'); return; }
+      state.items.push({ id: newId(), kind, title: title.slice(0, 60), url: res.url });
+    }
+    const ok = await persistItems();
+    renderItems();
+    $('item-dialog').close();
+    clearInputs(['item-name', 'item-url']);
+    if (ok) showToast(state.mode === 'secure' ? '저장했습니다.' : '메모리에만 추가했습니다.');
+  }
+
+  async function deleteItem(it) {
+    const ok = await confirmAction({ title: '삭제', message: '“' + it.title + '” 항목을 삭제할까요?', confirmLabel: '삭제' });
+    if (!ok || !state.unlocked) return;
+    state.items = state.items.filter((i) => i.id !== it.id);
+    await persistItems();
+    renderItems();
+    showToast('삭제했습니다.');
+  }
+
+  /* =========================================================
+   * 설정
+   * ======================================================= */
+  function applyTheme() {
+    let theme = state.store.settings.theme;
+    if (theme === 'system') theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'light' ? '#f4f6f9' : '#11151c');
+  }
+
+  function openSettings() {
+    const s = state.store.settings;
+    $('set-theme').value = s.theme;
+    $('set-autolock').value = String(s.autoLockMin);
+    $('set-lockhide').checked = s.lockOnHide;
+    $('set-popups').checked = s.allowPopups;
+    $('set-credentialless').checked = s.credentialless;
+    $('set-credentialless').disabled = !credentiallessSupported();
+    $('set-autolock').disabled = state.mode !== 'secure';
+    $('set-lockhide').disabled = state.mode !== 'secure';
+    clearInputs(['pc-current', 'pc-new', 'pc-new2']);
+    setMsg('pc-msg', '');
+    $('storage-report').hidden = true;
+    $('settings-dialog').showModal();
+  }
+
+  function saveSettingsFromForm() {
+    const s = state.store.settings;
+    s.theme = ['dark', 'light', 'system'].includes($('set-theme').value) ? $('set-theme').value : 'dark';
+    const al = parseInt($('set-autolock').value, 10);
+    s.autoLockMin = ALLOWED_AUTOLOCK.includes(al) ? al : 5;
+    s.lockOnHide = $('set-lockhide').checked;
+    s.allowPopups = $('set-popups').checked;
+    s.credentialless = $('set-credentialless').checked;
+    writeStore();
+    applyTheme();
+    renderStatusChips();
+  }
+
+  async function handlePinChange(ev) {
+    ev.preventDefault();
+    if (state.busy || state.mode !== 'secure') return;
+    if (lockoutRemainingMs() > 0) { setMsg('pc-msg', '입력 시도가 많습니다. ' + formatWait(lockoutRemainingMs()) + ' 후 다시 시도하세요.', 'warn'); return; }
+    const cur = $('pc-current').value;
+    const np = $('pc-new').value;
+    const np2 = $('pc-new2').value;
+    const problem = validateNewPin(np, np2);
+    if (problem) { setMsg('pc-msg', problem, 'error'); return; }
+    setBusy(true, 'pc-submit', '변경 중…');
+    try {
+      const key = await verifyPin(cur);
+      if (!key) {
+        registerFailure();
+        setMsg('pc-msg', '현재 PIN이 올바르지 않습니다.', 'error');
+        return;
+      }
+      const { record, key: newKey } = await createPinRecord(np);
+      const vault = await encryptJSON(newKey, { items: state.items });
+      state.store.pin = record;
+      state.store.vault = vault;
+      state.store.guard = { fails: 0, until: 0 };
+      if (!writeStore()) throw new Error('store');
+      state.key = newKey;
+      clearInputs(['pc-current', 'pc-new', 'pc-new2']);
+      setMsg('pc-msg', 'PIN을 변경했습니다.', 'ok');
+    } catch (e) {
+      setMsg('pc-msg', 'PIN을 변경하지 못했습니다.', 'error');
+    } finally {
+      clearInputs(['pc-current', 'pc-new', 'pc-new2']);
+      setBusy(false, 'pc-submit', 'PIN 변경');
+    }
+  }
+
+  async function runStorageCheck() {
+    const lines = [];
+    let plainUrlFound = false;
+    const scan = (label, storage) => {
+      try {
+        if (storage.length === 0) { lines.push(label + ': 비어 있음'); return; }
+        for (let i = 0; i < storage.length; i++) {
+          const k = storage.key(i);
+          const v = storage.getItem(k) || '';
+          const hasUrl = /https?:\/\//i.test(v);
+          if (hasUrl) plainUrlFound = true;
+          lines.push(label + ': "' + k + '" (' + v.length + '자)' + (hasUrl ? ' ⚠ 평문 웹 주소 포함' : ' — 평문 웹 주소 없음'));
+        }
+      } catch (e) {
+        lines.push(label + ': 접근할 수 없음');
+      }
+    };
+    scan('localStorage', window.localStorage);
+    scan('sessionStorage', window.sessionStorage);
+    try {
+      if (indexedDB && typeof indexedDB.databases === 'function') {
+        const dbs = await indexedDB.databases();
+        lines.push('IndexedDB: ' + (dbs.length ? dbs.map((d) => d.name).join(', ') : '없음'));
+      }
+    } catch (e) { lines.push('IndexedDB: 확인할 수 없음'); }
+    try {
+      if ('caches' in window) {
+        const names = await caches.keys();
+        lines.push('Cache Storage: ' + (names.length ? names.join(', ') + ' (앱 파일만 저장)' : '없음'));
+      }
+    } catch (e) { lines.push('Cache Storage: 확인할 수 없음'); }
+    lines.push('');
+    lines.push(plainUrlFound
+      ? '결과: 평문 웹 주소가 발견되었습니다. 이 사이트 주소(같은 출처)에 다른 앱이 있는지 확인하세요.'
+      : '결과: 저장소에 평문 웹 주소가 없습니다. 즐겨찾기는 암호문(ct)으로만 저장됩니다.');
+    lines.push('참고: 이 점검은 이 사이트 출처의 저장소만 볼 수 있으며 Chrome 방문 기록은 확인할 수 없습니다.');
+    const pre = $('storage-report');
+    pre.textContent = lines.join('\n');
+    pre.hidden = false;
+  }
+
+  async function resetAllData() {
+    const ok = await confirmAction({
+      title: '모든 저장 데이터 초기화',
+      message: 'PIN, 저장한 바로가기·즐겨찾기, 앱 설정, 오프라인 캐시가 이 기기에서 삭제됩니다. 되돌릴 수 없습니다.\n\n(Chrome 방문 기록이나 Google 계정 활동은 삭제되지 않습니다.)',
+      confirmLabel: '초기화',
+      requireText: '초기화'
+    });
+    if (!ok) return;
+    destroyFrame();
+    state.currentUrl = null;
+    state.items = [];
+    state.key = null;
+    await clearAllAppData();
+    location.reload();
+  }
+
+  /* =========================================================
+   * 상태 표시
+   * ======================================================= */
+  function renderStatusChips() {
+    const box = $('status-chips');
+    clearChildren(box);
+    const add = (text, kind) => {
+      const c = document.createElement('span');
+      c.className = 'chip' + (kind ? ' ' + kind : '');
+      c.textContent = text;
+      box.appendChild(c);
+    };
+    add(hasWebCrypto() ? 'Web Crypto 사용 가능' : 'Web Crypto 사용 불가', hasWebCrypto() ? 'ok' : 'warn');
+    add(state.mode === 'secure' ? 'PIN 잠금 켜짐' : 'PIN 잠금 사용 불가', state.mode === 'secure' ? 'ok' : 'warn');
+    if (state.mode === 'secure') add('자동 잠금 ' + state.store.settings.autoLockMin + '분', 'ok');
+    add('방문 기록 자동 저장 안 함', 'ok');
+    const iso = state.store.settings.credentialless && credentiallessSupported();
+    add(iso ? '격리 iframe 사용' : '격리 iframe 꺼짐/미지원', iso ? 'ok' : '');
+    add(state.swActive ? '오프라인 앱 사용 가능' : '오프라인 앱 비활성', state.swActive ? 'ok' : '');
+  }
+
+  function renderLimitedBanner() {
+    const b = $('limited-banner');
+    if (state.mode === 'secure') { b.hidden = true; return; }
+    b.hidden = false;
+    b.textContent = '보안 기능 제한 모드: ' + state.limitedReasons.join(' ') +
+      ' PIN 잠금과 즐겨찾기 저장이 꺼지고, 추가한 항목은 메모리에만 보관됩니다. HTTPS 주소(GitHub Pages 또는 Render)로 열면 모든 기능을 사용할 수 있습니다.';
+  }
+
+  /* =========================================================
+   * 공통 UI 도우미
+   * ======================================================= */
+  function setMsg(id, text, kind) {
+    const el = $(id);
+    el.textContent = text || '';
+    el.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+
+  function clearInputs(ids) {
+    ids.forEach((id) => { const el = $(id); if (el) el.value = ''; });
+  }
+
+  function clearChildren(el) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+  }
+
+  function showToast(text) {
+    const t = $('toast');
+    t.textContent = text;
+    t.hidden = false;
+    clearTimeout(state.toastTimer);
+    state.toastTimer = setTimeout(hideToast, 2800);
+  }
+
+  function hideToast() {
+    clearTimeout(state.toastTimer);
+    state.toastTimer = null;
+    $('toast').hidden = true;
+    $('toast').textContent = '';
+  }
+
+  // 확인 대화상자 → Promise<boolean>
+  function confirmAction({ title, message, confirmLabel, requireText }) {
+    return new Promise((resolve) => {
+      const dlg = $('confirm-dialog');
+      if (dlg.open) dlg.close('cancel');
+      $('confirm-title').textContent = title;
+      $('confirm-message').textContent = message;
+      $('confirm-ok').textContent = confirmLabel || '확인';
+      $('confirm-ok').className = requireText ? 'danger' : 'primary';
+      $('confirm-type-wrap').hidden = !requireText;
+      $('confirm-type').value = '';
+      $('confirm-type-label').textContent = requireText ? '계속하려면 “' + requireText + '”를 입력하세요.' : '';
+      setMsg('confirm-msg', '', 'error');
+
+      const form = $('confirm-form');
+      const cancelBtn = $('confirm-cancel');
+      const finish = (result) => {
+        form.removeEventListener('submit', onSubmit);
+        cancelBtn.removeEventListener('click', onCancel);
+        dlg.removeEventListener('close', onClose);
+        if (dlg.open) dlg.close();
+        resolve(result);
+      };
+      const onSubmit = (ev) => {
+        ev.preventDefault();
+        if (requireText && $('confirm-type').value.trim() !== requireText) {
+          setMsg('confirm-msg', '입력한 문구가 일치하지 않습니다.', 'error');
+          $('confirm-type').focus();
+          return;
+        }
+        finish(true);
+      };
+      const onCancel = () => finish(false);
+      const onClose = () => finish(false);
+      form.addEventListener('submit', onSubmit);
+      cancelBtn.addEventListener('click', onCancel);
+      dlg.addEventListener('close', onClose);
+      dlg.showModal();
+      (requireText ? $('confirm-type') : cancelBtn).focus();
+    });
+  }
+
+  /* =========================================================
+   * PWA (서비스 워커)
+   * ======================================================= */
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') return;
+    let scriptUrl = './sw.js';
+    if (window.trustedTypes && trustedTypes.createPolicy) {
+      const policy = trustedTypes.createPolicy('qs-sw', {
+        createScriptURL: (s) => { if (s === './sw.js') return s; throw new TypeError('blocked'); }
+      });
+      scriptUrl = policy.createScriptURL('./sw.js');
+    }
+    navigator.serviceWorker.register(scriptUrl, { scope: './' })
+      .then(() => navigator.serviceWorker.ready)
+      .then(() => { state.swActive = true; if (state.unlocked) renderStatusChips(); })
+      .catch(() => { state.swActive = false; });
+  }
+
+  /* =========================================================
+   * 이벤트 연결
+   * ======================================================= */
+  function bindEvents() {
+    $('setup-form').addEventListener('submit', handleSetupSubmit);
+    $('unlock-form').addEventListener('submit', handleUnlockSubmit);
+    $('forgot-btn').addEventListener('click', resetAllData);
+
+    $('address-form').addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      navigateTo($('address-input').value);
+    });
+    $('home-btn').addEventListener('click', closeViewer);
+    $('lock-btn').addEventListener('click', lockApp);
+    $('settings-btn').addEventListener('click', openSettings);
+
+    $('viewer-close').addEventListener('click', closeViewer);
+    $('viewer-reload').addEventListener('click', () => { if (state.currentUrl) openInViewer(state.currentUrl); });
+    $('viewer-save').addEventListener('click', () => { if (state.currentUrl) openItemDialog('bookmark', null, state.currentUrl); });
+    $('viewer-newtab').addEventListener('click', openInNewTab);
+    $('viewer-copy').addEventListener('click', copyCurrentUrl);
+
+    $('add-shortcut-btn').addEventListener('click', () => openItemDialog('shortcut'));
+    $('add-bookmark-btn').addEventListener('click', () => openItemDialog('bookmark'));
+    $('item-form').addEventListener('submit', saveItemFromDialog);
+
+    ['set-theme', 'set-autolock', 'set-lockhide', 'set-popups', 'set-credentialless'].forEach((id) => {
+      $(id).addEventListener('change', saveSettingsFromForm);
+    });
+    $('pin-change-form').addEventListener('submit', handlePinChange);
+    $('storage-check-btn').addEventListener('click', runStorageCheck);
+    $('reset-btn').addEventListener('click', resetAllData);
+
+    document.querySelectorAll('dialog [data-close]').forEach((btn) => {
+      btn.addEventListener('click', () => btn.closest('dialog').close());
+    });
+    $('settings-dialog').addEventListener('close', () => clearInputs(['pc-current', 'pc-new', 'pc-new2']));
+
+    // 활동 감지 (iframe 내부 활동은 감지되지 않음)
+    ['pointerdown', 'keydown', 'wheel', 'touchstart', 'pointermove'].forEach((type) => {
+      document.addEventListener(type, () => { if (state.unlocked) markActivity(); }, { passive: true, capture: true });
+    });
+
+    // 키보드 단축키
+    document.addEventListener('keydown', (ev) => {
+      if (!state.unlocked) return;
+      const tag = (ev.target && ev.target.tagName) || '';
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      if (ev.altKey && !ev.ctrlKey && !ev.metaKey && (ev.key === 'l' || ev.key === 'L')) {
+        ev.preventDefault();
+        lockApp();
+      } else if (ev.key === '/' && !typing && !document.querySelector('dialog[open]')) {
+        ev.preventDefault();
+        $('address-input').focus();
+        $('address-input').select();
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!state.unlocked) return;
+      if (document.visibilityState === 'hidden' && state.store.settings.lockOnHide) lockApp();
+      else if (document.visibilityState === 'visible') checkIdle();
+    });
+
+    // 뒤로 가기 캐시(bfcache)로 잠금 해제 화면이 복원되지 않도록 페이지를 떠날 때 잠근다
+    window.addEventListener('pagehide', () => { if (state.unlocked) lockApp(); });
+    window.addEventListener('pageshow', (ev) => { if (ev.persisted && state.unlocked) lockApp(); });
+
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+      if (state.store.settings.theme === 'system') applyTheme();
+    });
+  }
+
+  /* =========================================================
+   * 시작
+   * ======================================================= */
+  function isFramed() {
+    try { return window.self !== window.top; } catch (e) { return true; }
+  }
+
+  function init() {
+    if (isFramed()) {
+      $('frame-guard').hidden = false;
+      return;
+    }
+    const cryptoOk = hasWebCrypto();
+    const storageOk = storageWorks();
+    state.store = storageOk ? readStore() : defaultStore();
+    if (!cryptoOk) state.limitedReasons.push('이 환경(HTTPS가 아닌 주소 등)에서는 Web Crypto API를 사용할 수 없습니다.');
+    if (!storageOk) state.limitedReasons.push('브라우저 저장소를 사용할 수 없습니다(사이트 데이터 차단 등).');
+    state.mode = cryptoOk && storageOk ? 'secure' : 'limited';
+
+    applyTheme();
+    bindEvents();
+    registerServiceWorker();
+
+    if (!cryptoOk && state.store.pin) {
+      showLockScreen('unavailable');
+    } else if (state.mode === 'limited') {
+      enterApp();
+    } else if (!state.store.pin) {
+      showLockScreen('setup');
+    } else {
+      showLockScreen('unlock');
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

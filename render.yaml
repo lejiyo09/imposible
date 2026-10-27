@@ -1,0 +1,27 @@
+# Render Blueprint — QuietSpace 정적 사이트
+# 빌드 과정이 없으므로 저장소 루트를 그대로 공개한다.
+services:
+  - type: web
+    name: quietspace
+    runtime: static
+    buildCommand: echo "no build step"
+    staticPublishPath: .
+    headers:
+      - path: /*
+        name: Content-Security-Policy
+        value: "frame-ancestors 'none'"
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /*
+        name: Permissions-Policy
+        value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache
