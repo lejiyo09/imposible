@@ -1,5 +1,5 @@
-const CACHE='qs-shell-v3';
-const SHELL=['./','./index.html','./manifest.webmanifest','./icons/icon.svg','./icons/icon-maskable.svg'];
+const CACHE='qs-shell-v4';
+const SHELL=['/','/index.html','/manifest.webmanifest','/icons/icon.svg','/icons/icon-maskable.svg'];
 
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));
@@ -14,13 +14,10 @@ self.addEventListener('activate',e=>{
 
 self.addEventListener('fetch',e=>{
   const u=new URL(e.request.url);
-  if(u.origin!==self.location.origin)return;
-  if(u.pathname.startsWith('/p/'))return;
-  if(e.request.method!=='GET')return;
+  if(u.origin!==self.location.origin||e.request.method!=='GET'||!SHELL.includes(u.pathname))return;
   e.respondWith(
     fetch(e.request,{cache:'no-store'}).then(nr=>{
-      if(nr.ok&&SHELL.some(s=>u.pathname.endsWith(s.replace('./','/'))))
-        caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));
+      if(nr.ok)caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));
       return nr;
     }).catch(()=>caches.match(e.request))
   );

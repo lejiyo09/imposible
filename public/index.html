@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self'; frame-src 'self' https:; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self'; frame-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#0f1219">
@@ -340,10 +340,10 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
         <ul>
           <li>방문한 주소, 검색어, 방문 시간, 페이지 제목을 <strong>자동으로 저장하지 않습니다.</strong></li>
           <li>iframe 안에서 본 사이트는 <strong>Chrome 방문 기록에 나타나지 않습니다.</strong> Chrome 기록에는 QuietSpace 페이지 주소만 남습니다.</li>
-          <li>모든 사이트는 프록시를 통해 iframe 안에서 열립니다.</li>
-          <li>현재 주소는 보는 동안에만 메모리에 있고, 잠금·닫기·초기화 시 지웁니다.</li>
+          <li>모든 사이트는 QuietSpace 서버(Render)를 거치는 프록시(Ultraviolet)로 iframe 안에서 열립니다. 따라서 방문하는 사이트와의 통신은 이 서버를 지나갑니다. 서버는 주소를 기록하지 않습니다.</li>
+          <li>사이트를 보는 동안 사이트가 남기는 쿠키·저장 데이터는 이 기기에 임시로 생기며, 닫기·잠금·앱 시작 시 지웁니다.</li>
           <li>직접 "저장"한 항목만 이 기기 저장소에 AES-GCM으로 암호화해 보관합니다.</li>
-          <li>분석·광고·추적 코드, 외부 라이브러리를 쓰지 않으며 어떤 서버로도 주소를 전송하지 않습니다.</li>
+          <li>분석·광고·추적 코드를 쓰지 않습니다.</li>
         </ul>
         <h3>이 앱이 제어할 수 없는 것</h3>
         <ul>
@@ -380,7 +380,6 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
       <select id="s-idle"><option value="1">1분</option><option value="3">3분</option><option value="5">5분 (기본)</option><option value="10">10분</option><option value="15">15분</option></select>
 
       <label class="chk"><input type="checkbox" id="s-hide"><span>다른 탭/창 전환 또는 화면 꺼짐 시 바로 잠그기</span></label>
-      <label class="chk"><input type="checkbox" id="s-cred"><span>격리 iframe 사용 (지원 시) — 사이트가 기존 로그인 쿠키를 받지 않고 임시 저장소에서 동작합니다. 일부 사이트에서 오류를 유발할 수 있어 기본 꺼짐.</span></label>
       <label class="chk"><input type="checkbox" id="s-pop"><span>iframe 내 팝업 허용 — 사이트가 연 새 창은 Chrome 기록에 남을 수 있습니다.</span></label>
 
       <div class="sect" id="pin-sect">
@@ -410,6 +409,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
           <li>PIN 잠금은 화면 가림용 가벼운 보호이며 계정 인증이 아닙니다.</li>
           <li>즐겨찾기는 AES-GCM으로 암호화되지만, 짧은 숫자 PIN은 경우의 수가 적어 저장소를 복사한 사람이 오프라인 추측 가능합니다.</li>
           <li>코드 변경, 개발자 도구, 확장 프로그램, 사이트 데이터 삭제로 우회·초기화 가능합니다.</li>
+          <li>프록시로 연 사이트의 스크립트는 이 앱과 같은 출처에서 실행됩니다. 악의적인 사이트라면 이 기기에 저장된 암호화된 즐겨찾기와 PIN 검증값을 읽어 갈 수 있으니, 믿을 수 있는 사이트만 여세요.</li>
           <li>Chrome 기록, Google 계정 활동, 학교 관리 기록에는 영향을 주지 않습니다.</li>
         </ul>
       </div>
@@ -465,6 +465,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
 
 <div id="toast" role="status" aria-live="polite" hidden></div>
 
+<script src="/baremux/index.js"></script>
 <script>
 (()=>{
 'use strict';
@@ -472,7 +473,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
 /* =========== 상수 =========== */
 const STORE='qs:v1',ITER=310000,PIN_RE=/^\d{4,12}$/;
 const MAX_ATT=5,LOCK_BASE=30000,LOCK_MAX=900000;
-const IDLE_CK=10000,FRAME_TO=10000,MAX_RETRY=5,RETRY_DELAY=1500;
+const IDLE_CK=10000,FRAME_TO=25000,MAX_RETRY=5,RETRY_DELAY=1500;
 const MAX_ITEMS=100,MAX_URL=2048;
 const IDLE_OPTS=[1,3,5,10,15];
 
@@ -482,14 +483,14 @@ const BLOCKERS=[];
 const S={
   mode:'secure',reasons:[],store:null,unlocked:false,key:null,items:[],
   curUrl:null,loadUrl:null,busy:false,lastAct:Date.now(),
-  idleTm:null,lockTm:null,frameTm:null,toastTm:null,
+  idleTm:null,lockTm:null,frameTm:null,syncTm:null,toastTm:null,
   editId:null,swOk:false,retries:0,
   hist:[],histIdx:-1
 };
 const $=id=>document.getElementById(id);
 
 /* =========== 저장소 =========== */
-function defaults(){return{v:1,set:{theme:'dark',idle:5,lockHide:false,popups:false,cred:false},pin:null,vault:null,guard:{f:0,u:0}}}
+function defaults(){return{v:1,set:{theme:'dark',idle:5,lockHide:false,popups:false},pin:null,vault:null,guard:{f:0,u:0}}}
 
 function storageOk(){try{const k='qs:t';localStorage.setItem(k,'1');localStorage.removeItem(k);return true}catch(e){return false}}
 
@@ -502,7 +503,7 @@ function load(){
     const s=d.set||{};
     b.set.theme=['dark','light','system'].includes(s.theme)?s.theme:'dark';
     b.set.idle=IDLE_OPTS.includes(s.idle)?s.idle:5;
-    b.set.lockHide=s.lockHide===true;b.set.popups=s.popups===true;b.set.cred=s.cred!==false;
+    b.set.lockHide=s.lockHide===true;b.set.popups=s.popups===true;
     const p=d.pin;
     if(p&&typeof p.s==='string'&&typeof p.v==='string'&&Number.isInteger(p.i)&&p.i>=100000)b.pin={s:p.s,i:p.i,v:p.v};
     const vt=d.vault;
@@ -657,9 +658,7 @@ function enter(){
 function lock(){
   if(S.mode!=='secure'||!S.store.pin)return;
   document.querySelectorAll('dialog[open]').forEach(d=>d.close());
-  killFrame();S.curUrl=null;S.loadUrl=null;
-  $('viewer').hidden=true;$('dash').hidden=false;
-  $('addr-in').value='';setMsg('addr-msg','');
+  closeViewer();
   clr(['it-name','it-url','pc-cur','pc-new','pc-new2']);
   $('chk-rpt').hidden=true;$('chk-rpt').textContent='';
   S.items=[];S.key=null;S.unlocked=false;
@@ -725,23 +724,80 @@ function isBlocker(url){
 }
 
 
+/* =========== 프록시 (Ultraviolet) =========== */
+const PX_PREFIX='/service/';
+function xorEnc(s){let t='';for(let i=0;i<s.length;i++)t+=i%2?String.fromCharCode(s.charCodeAt(i)^2):s[i];return encodeURIComponent(t)}
+function xorDec(s){
+  let d;try{d=decodeURIComponent(s)}catch(e){return null}
+  let t='';for(let i=0;i<d.length;i++)t+=i%2?String.fromCharCode(d.charCodeAt(i)^2):d[i];return t;
+}
+
+let pxP=null;
+function pxReady(){
+  if(!pxP)pxP=(async()=>{
+    if(!('serviceWorker' in navigator)||!window.isSecureContext)throw new Error('이 환경에서는 서비스 워커를 쓸 수 없어 프록시를 시작할 수 없습니다. HTTPS 주소로 열어 주세요.');
+    if(!window.BareMux||!window.SharedWorker)throw new Error('프록시 전송 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도하세요.');
+    const reg=await navigator.serviceWorker.register('/uv-sw.js',{scope:PX_PREFIX});
+    if(!reg.active){
+      const w=reg.installing||reg.waiting;
+      await new Promise((res,rej)=>{w.addEventListener('statechange',()=>{if(w.state==='activated')res();else if(w.state==='redundant')rej(new Error('프록시 서비스 워커 설치에 실패했습니다.'))})});
+    }
+    const wisp=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/wisp/';
+    await new BareMux.BareMuxConnection('/baremux/worker.js').setTransport('/epoxy/index.mjs',[{wisp}]);
+  })().catch(e=>{pxP=null;throw e});
+  return pxP;
+}
+
+// 프록시된 사이트가 이 출처에 남긴 데이터(사이트 주소가 키에 포함됨)를 지운다. 앱 데이터(qs*)는 유지.
+async function purgeSiteData(){
+  for(const st of [localStorage,sessionStorage]){
+    try{const ks=[];for(let i=0;i<st.length;i++){const k=st.key(i);if(k&&!k.startsWith('qs')&&k!=='bare-mux-path')ks.push(k)}ks.forEach(k=>st.removeItem(k))}catch(e){}
+  }
+  try{
+    const dbs=await indexedDB.databases();
+    for(const d of dbs){
+      if(!d.name)continue;
+      if(d.name==='__op')await clearIdbStores(d.name);
+      else indexedDB.deleteDatabase(d.name);
+    }
+  }catch(e){}
+  try{const n=await caches.keys();await Promise.all(n.filter(x=>!x.startsWith('qs-')).map(x=>caches.delete(x)))}catch(e){}
+}
+// __op는 프록시 서비스 워커가 열어 두므로 삭제하면 막힐 수 있어 내용만 비운다.
+function clearIdbStores(name){
+  return new Promise(res=>{
+    const r=indexedDB.open(name);
+    r.onerror=r.onblocked=()=>res();
+    r.onsuccess=()=>{
+      const db=r.result,names=[...db.objectStoreNames];
+      if(!names.length){db.close();return res()}
+      const tx=db.transaction(names,'readwrite');names.forEach(n=>tx.objectStore(n).clear());
+      tx.oncomplete=tx.onerror=tx.onabort=()=>{db.close();res()};
+    };
+  });
+}
+
 /* =========== 뷰어 (iframe + 재시도) =========== */
 function sbx(){
-  const t=['allow-scripts','allow-same-origin','allow-forms','allow-downloads','allow-modals','allow-presentation','allow-top-navigation-by-user-activation'];
-  if(S.store.set.popups)t.push('allow-popups','allow-popups-to-escape-sandbox');
+  const t=['allow-scripts','allow-same-origin','allow-forms','allow-downloads','allow-modals','allow-presentation'];
+  if(S.store.set.popups)t.push('allow-popups');
   return t.join(' ');
 }
 
-function credOk(){return'credentialless' in HTMLIFrameElement.prototype}
-
 function killFrame(){
-  clearTimeout(S.frameTm);S.frameTm=null;S.retries=0;
+  clearTimeout(S.frameTm);S.frameTm=null;clearInterval(S.syncTm);S.syncTm=null;S.retries=0;
   const old=$('fwrap').querySelector('iframe');if(old)old.remove();
 }
 
-function openViewer(url,skipHist){
-  killFrame();S.curUrl=url;
-  S.loadUrl='/p/'+url;S.retries=0;
+function resetLoader(txt){
+  const w=$('v-load');while(w.firstChild)w.removeChild(w.firstChild);
+  const box=document.createElement('div'),sp=document.createElement('div'),p=document.createElement('p');
+  sp.className='spin';sp.setAttribute('aria-hidden','true');p.id='v-ltxt';p.style.margin='0';p.textContent=txt;
+  box.append(sp,p);w.appendChild(box);w.hidden=false;
+}
+
+async function openViewer(url,skipHist){
+  killFrame();S.curUrl=url;S.loadUrl=null;
   if(!skipHist){
     S.hist.length=S.histIdx+1;
     S.hist.push(url);S.histIdx=S.hist.length-1;
@@ -751,7 +807,22 @@ function openViewer(url,skipHist){
   $('addr-form').classList.add('vw');
   $('addr-in').value=url;
   setMsg('addr-msg','');
+  resetLoader('프록시 준비 중…');
+  try{await pxReady()}catch(e){if(S.curUrl===url)showErrAnalysis(e.message);return}
+  if(S.curUrl!==url)return;
+  S.loadUrl=PX_PREFIX+xorEnc(url);
   attempt(S.loadUrl);
+}
+
+// 사이트 안에서 링크로 이동하면 주소창과 뒤로 가기 목록을 따라 갱신한다.
+function syncAddr(){
+  const f=$('fwrap').querySelector('iframe');if(!f)return;
+  let l;try{l=f.contentWindow.location}catch(e){return}
+  if(!l||l.origin!==location.origin||!l.pathname.startsWith(PX_PREFIX))return;
+  const u=xorDec(l.pathname.slice(PX_PREFIX.length));
+  if(!u||!/^https?:\/\//i.test(u)||u===S.curUrl)return;
+  S.curUrl=u;S.hist.length=S.histIdx+1;S.hist.push(u);S.histIdx=S.hist.length-1;updNav();
+  if(document.activeElement!==$('addr-in'))$('addr-in').value=u;
 }
 function updNav(){
   $('v-back').disabled=S.histIdx<1;
@@ -772,16 +843,14 @@ function doRefresh(){
 function attempt(url){
   S.retries++;
   const old=$('fwrap').querySelector('iframe');if(old)old.remove();
-  $('v-load').hidden=false;
-  $('v-ltxt').textContent=S.retries>1?'불러오는 중… (시도 '+S.retries+'/'+MAX_RETRY+')':'불러오는 중…';
+  resetLoader(S.retries>1?'불러오는 중… (시도 '+S.retries+'/'+MAX_RETRY+')':'불러오는 중…');
 
   const f=document.createElement('iframe');
-  f.title=hostOf(url)+' 페이지';
+  f.title=hostOf(S.curUrl)+' 페이지';
   f.setAttribute('sandbox',sbx());
   f.setAttribute('referrerpolicy','no-referrer');
-  f.setAttribute('allow','fullscreen');
+  f.setAttribute('allow','fullscreen; autoplay; encrypted-media; picture-in-picture');
   f.setAttribute('loading','eager');
-  if(S.store.set.cred&&credOk())f.credentialless=true;
 
   f.addEventListener('load',function onLoad(){
     clearTimeout(S.frameTm);S.frameTm=null;
@@ -790,6 +859,7 @@ function attempt(url){
 
   f.src=url;
   $('fwrap').appendChild(f);
+  clearInterval(S.syncTm);S.syncTm=setInterval(syncAddr,700);
 
   clearTimeout(S.frameTm);
   S.frameTm=setTimeout(()=>{
@@ -802,7 +872,7 @@ function attempt(url){
   },FRAME_TO);
 }
 
-function showErrAnalysis(){
+function showErrAnalysis(cause){
   clearTimeout(S.frameTm);S.frameTm=null;
   const wrap=$('v-load');
   while(wrap.firstChild)wrap.removeChild(wrap.firstChild);
@@ -811,13 +881,13 @@ function showErrAnalysis(){
   const box=document.createElement('div');box.id='v-err';
 
   const h=document.createElement('h3');
-  h.textContent='5회 시도 후 로드 실패 — 오류 분석';
+  h.textContent=cause?'프록시를 시작하지 못했습니다':MAX_RETRY+'회 시도 후 로드 실패 — 오류 분석';
   box.appendChild(h);
 
-  const reasons=['프록시를 통해 시도했으나 실패했습니다.',
-    '네트워크 연결이 불안정하거나 사이트가 응답하지 않을 수 있습니다.',
-    '학교 네트워크 필터가 해당 사이트를 차단했을 수 있습니다.',
-    '사이트의 JavaScript가 프록시 환경에서 정상 동작하지 않을 수 있습니다.'];
+  const reasons=cause?[cause]:[MAX_RETRY+'번 모두 '+(FRAME_TO/1000)+'초 안에 페이지 로드가 끝나지 않았습니다.',
+    'QuietSpace 서버(Render)가 잠들어 있었다면 처음 깨어나는 데 30초 이상 걸릴 수 있습니다.',
+    '학교 네트워크가 QuietSpace 서버와의 WebSocket(/wisp/) 연결을 막았을 수 있습니다.',
+    '사이트가 Render 서버 IP를 봇으로 보고 차단했을 수 있습니다.'];
 
   const ul=document.createElement('ul');
   reasons.forEach(r=>{const li=document.createElement('li');li.textContent=r;ul.appendChild(li)});
@@ -838,14 +908,18 @@ function showErrAnalysis(){
   wrap.appendChild(box);
 }
 
-function closeViewer(){killFrame();S.curUrl=null;S.loadUrl=null;S.hist=[];S.histIdx=-1;$('addr-in').value='';setMsg('addr-msg','');$('addr-form').classList.remove('vw');showDash()}
+function closeViewer(){
+  killFrame();S.curUrl=null;S.loadUrl=null;S.hist=[];S.histIdx=-1;
+  $('addr-in').value='';setMsg('addr-msg','');$('addr-form').classList.remove('vw');showDash();
+  purgeSiteData();
+}
 function showDash(){$('viewer').hidden=true;$('dash').hidden=false}
 
 function navTo(raw){
   const r=normUrl(raw);
   if(r.err){setMsg('addr-msg',r.err,'e');$('addr-in').focus();return}
   setMsg('addr-msg',r.note||'',r.note?'w':'');
-  $('addr-in').value=r.url;openViewer(r.url);
+  $('addr-in').value=r.url;$('addr-in').blur();openViewer(r.url);
 }
 
 async function openNewTab(){
@@ -966,8 +1040,7 @@ function applyTheme(){
 function openSet(){
   const s=S.store.set;
   $('s-theme').value=s.theme;$('s-idle').value=String(s.idle);
-  $('s-hide').checked=s.lockHide;$('s-pop').checked=s.popups;$('s-cred').checked=s.cred;
-  $('s-cred').disabled=!credOk();
+  $('s-hide').checked=s.lockHide;$('s-pop').checked=s.popups;
   $('s-idle').disabled=S.mode!=='secure';$('s-hide').disabled=S.mode!=='secure';
   clr(['pc-cur','pc-new','pc-new2']);setMsg('pc-msg','');
   $('chk-rpt').hidden=true;$('d-set').showModal();
@@ -977,7 +1050,7 @@ function saveSet(){
   const s=S.store.set;
   s.theme=['dark','light','system'].includes($('s-theme').value)?$('s-theme').value:'dark';
   const al=parseInt($('s-idle').value,10);s.idle=IDLE_OPTS.includes(al)?al:5;
-  s.lockHide=$('s-hide').checked;s.popups=$('s-pop').checked;s.cred=$('s-cred').checked;
+  s.lockHide=$('s-hide').checked;s.popups=$('s-pop').checked;
   save();applyTheme();renderChips();
 }
 
@@ -1035,8 +1108,6 @@ function renderChips(){
   add(S.mode==='secure'?'PIN 잠금 켜짐':'PIN 잠금 불가',S.mode==='secure'?'ok':'w');
   if(S.mode==='secure')add('자동 잠금 '+S.store.set.idle+'분','ok');
   add('방문 기록 자동 저장 안 함','ok');
-  const iso=S.store.set.cred&&credOk();
-  add(iso?'격리 iframe':'격리 iframe 꺼짐/미지원',iso?'ok':'');
   add(S.swOk?'오프라인 사용 가능':'오프라인 비활성',S.swOk?'ok':'');
 }
 
@@ -1104,7 +1175,7 @@ function bind(){
   $('add-bm').addEventListener('click',()=>openItemDlg('bookmark'));
   $('f-item').addEventListener('submit',saveItem);
 
-  ['s-theme','s-idle','s-hide','s-pop','s-cred'].forEach(id=>$(id).addEventListener('change',saveSet));
+  ['s-theme','s-idle','s-hide','s-pop'].forEach(id=>$(id).addEventListener('change',saveSet));
   $('f-pc').addEventListener('submit',onPinChange);
   $('chk-btn').addEventListener('click',storageCheck);
   $('reset-btn').addEventListener('click',resetAll);
@@ -1146,7 +1217,7 @@ function init(){
   if(!cOk)S.reasons.push('Web Crypto API 사용 불가 (HTTPS가 아닌 환경).');
   if(!sOk)S.reasons.push('브라우저 저장소 사용 불가.');
   S.mode=cOk&&sOk?'secure':'limited';
-  applyTheme();bind();regSW();
+  applyTheme();bind();regSW();purgeSiteData();
   if(!cOk&&S.store.pin)showLock('unavail');
   else if(S.mode==='limited')enter();
   else if(!S.store.pin)showLock('setup');

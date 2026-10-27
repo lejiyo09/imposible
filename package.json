@@ -6,6 +6,10 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@mercuryworkshop/bare-mux": "2.1.9",
+    "@mercuryworkshop/epoxy-transport": "2.1.29",
+    "@mercuryworkshop/wisp-js": "0.5.1",
+    "@titaniumnetwork-dev/ultraviolet": "3.2.10",
     "express": "^4.21.0"
   },
   "engines": {
