@@ -10,6 +10,8 @@ wisp.options.allow_private_ips = false;
 wisp.options.allow_loopback_ips = false;
 wisp.options.allow_udp_streams = false;
 wisp.options.port_whitelist = [80, 443];
+// wisp는 DNS 결과 중 주소 하나에만 접속을 시도한다. IPv6가 먼저 오면 IPv6 송신이 없는 호스팅에서 실패하므로 IPv4 우선.
+wisp.options.dns_result_order = 'ipv4first';
 
 const app = express();
 app.disable('x-powered-by');
