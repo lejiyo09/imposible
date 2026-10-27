@@ -1,0 +1,26 @@
+{
+  "name": "QuietSpace",
+  "short_name": "QuietSpace",
+  "description": "크롬북용 개인 웹 작업 공간 — 앱 내부에 방문 기록을 저장하지 않습니다.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0f1219",
+  "background_color": "#0f1219",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
