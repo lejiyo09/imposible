@@ -101,18 +101,19 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;strok
 /* ---- 앱 ---- */
 #app{min-height:100%;display:flex;flex-direction:column}
 .topbar{
-  display:flex;align-items:center;gap:.65rem;padding:10px 16px;
+  display:flex;align-items:center;gap:.5rem;padding:6px 16px;
   border-bottom:1px solid var(--border);background:var(--surface);
   position:sticky;top:0;z-index:6;
 }
 .topbar .acts{margin-left:auto;display:flex;gap:.35rem}
 .bl{display:inline}
 
-#addr-form{display:flex;gap:.5rem;padding:10px 16px 4px;max-width:1080px;width:100%;margin:0 auto}
+#addr-form{display:flex;gap:.5rem;padding:6px 16px 2px;max-width:1080px;width:100%;margin:0 auto}
 #addr-form .fld{flex:1;position:relative}
-#addr-in{padding-left:2.2rem;min-height:46px;font-size:1rem}
+#addr-in{padding-left:2.2rem;min-height:40px;font-size:.95rem}
 #addr-form .fld svg{position:absolute;left:.65rem;top:50%;transform:translateY(-50%);color:var(--muted)}
-#addr-msg{padding:0 16px;max-width:1080px;width:100%;margin:0 auto}
+#addr-msg{padding:0 16px;max-width:1080px;width:100%;margin:0 auto;font-size:.82rem;min-height:0}
+#addr-msg:empty{display:none}
 main{flex:1;display:flex;flex-direction:column;width:100%}
 
 /* 대시보드 */
@@ -156,9 +157,11 @@ main{flex:1;display:flex;flex-direction:column;width:100%}
 #pol-card li{margin:.15rem 0}
 
 /* ---- 뷰어 ---- */
-#viewer{flex:1;display:flex;flex-direction:column;padding:8px 16px 16px;gap:8px;min-height:0}
-.vbar{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:.35rem .45rem}
-#v-host{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;padding-left:.25rem;font-size:.92rem}
+#viewer{flex:1;display:flex;flex-direction:column;padding:4px 16px 16px;gap:4px;min-height:0}
+.vbar{display:flex;align-items:center;gap:.25rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:.2rem .35rem}
+.vbar button{min-height:32px;padding:.25rem .5rem;font-size:.85rem}
+.vbar button:disabled{opacity:.35;cursor:not-allowed}
+#v-host{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;padding-left:.25rem;font-size:.85rem}
 .vnote{font-size:.85rem}
 .fwrap{position:relative;flex:1;min-height:55vh;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:#fff}
 .fwrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
@@ -216,6 +219,8 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.8 5.8 6.2.9-4.5 4.4 1 6.2L12 17.4l-5.5 2.9 1-6.2L3 9.7l6.2-.9z"/></symbol>
   <symbol id="i-ref" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+  <symbol id="i-fwd" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
   <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></symbol>
@@ -289,7 +294,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
       <svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg>
       <label for="addr-in" class="sr">웹 주소</label>
       <input id="addr-in" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"
-             placeholder="https://example.com ( / 키로 포커스)" maxlength="2048" aria-describedby="addr-msg">
+             placeholder="주소 또는 검색어 입력 ( / 키로 포커스)" maxlength="2048" aria-describedby="addr-msg">
     </div>
     <button type="submit" class="btn-p"><svg class="ic" aria-hidden="true"><use href="#i-go"/></svg><span class="bl">이동</span></button>
   </form>
@@ -329,7 +334,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
         <ul>
           <li>방문한 주소, 검색어, 방문 시간, 페이지 제목을 <strong>자동으로 저장하지 않습니다.</strong></li>
           <li>iframe 안에서 본 사이트는 <strong>Chrome 방문 기록에 나타나지 않습니다.</strong> Chrome 기록에는 QuietSpace 페이지 주소만 남습니다.</li>
-          <li>YouTube, 치지직, 숲 등 영상 사이트는 자동으로 임베드 플레이어로 변환하여 iframe에서 재생합니다.</li>
+          <li>모든 사이트는 프록시를 통해 iframe 안에서 열립니다.</li>
           <li>현재 주소는 보는 동안에만 메모리에 있고, 잠금·닫기·초기화 시 지웁니다.</li>
           <li>직접 "저장"한 항목만 이 기기 저장소에 AES-GCM으로 암호화해 보관합니다.</li>
           <li>분석·광고·추적 코드, 외부 라이브러리를 쓰지 않으며 어떤 서버로도 주소를 전송하지 않습니다.</li>
@@ -348,24 +353,15 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
     <!-- 뷰어 -->
     <section id="viewer" aria-label="웹사이트 보기" hidden>
       <div class="vbar">
+        <button type="button" id="v-back" title="뒤로 (Alt+←)" disabled><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg><span class="bl">뒤로</span></button>
+        <button type="button" id="v-fwd" title="앞으로 (Alt+→)" disabled><svg class="ic" aria-hidden="true"><use href="#i-fwd"/></svg><span class="bl">앞으로</span></button>
+        <button type="button" id="v-ref" title="새로고침 (F5)"><svg class="ic" aria-hidden="true"><use href="#i-ref"/></svg><span class="bl">새로고침</span></button>
         <span id="v-host"></span>
-        <button type="button" id="v-ref" title="새로고침"><svg class="ic" aria-hidden="true"><use href="#i-ref"/></svg><span class="bl">새로고침</span></button>
         <button type="button" id="v-save" title="즐겨찾기에 저장"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg><span class="bl">저장</span></button>
         <button type="button" id="v-tab" title="새 탭에서 열기"><svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg><span class="bl">새 탭</span></button>
         <button type="button" id="v-close" title="닫기"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg><span class="bl">닫기</span></button>
       </div>
       <div id="v-block" class="banner vnote" hidden></div>
-      <details class="banner vnote" id="v-help">
-        <summary>도움말 — 프록시 브라우징과 Chrome 기록</summary>
-        <ul style="margin:.3rem 0;padding-left:1.1rem;font-size:.88rem">
-          <li><strong>모든 사이트가 프록시를 통해 iframe 안에서 열립니다.</strong> Chrome 기록에는 QuietSpace 주소만 표시됩니다.</li>
-          <li>YouTube, 치지직(Chzzk), 숲(SOOP) 동영상 URL은 임베드 플레이어로 자동 변환합니다.</li>
-          <li>네이버, 구글, 메가스터디 등 기존에 차단되던 사이트도 프록시 모드에서 정상적으로 열립니다.</li>
-          <li>프록시 모드에서는 사이트의 일부 기능(로그인, 댓글 작성 등)이 제한될 수 있습니다.</li>
-          <li><button type="button" class="btn-g" id="v-copy" style="min-height:30px;padding:.15rem .4rem;font-size:.85rem"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>주소 복사</button> 후 시크릿 탭(Ctrl+Shift+N)에 붙여넣으면 Chrome 기록 없이 직접 접속 가능합니다.</li>
-          <li>다운로드, 전체 화면, 모달 등 확장 기능이 활성화되어 있습니다.</li>
-        </ul>
-      </details>
       <div class="fwrap" id="fwrap">
         <div id="v-load" role="status" aria-live="polite">
           <div>
@@ -491,7 +487,8 @@ const S={
   mode:'secure',reasons:[],store:null,unlocked:false,key:null,items:[],
   curUrl:null,loadUrl:null,busy:false,lastAct:Date.now(),
   idleTm:null,lockTm:null,frameTm:null,toastTm:null,
-  editId:null,swOk:false,retries:0
+  editId:null,swOk:false,retries:0,
+  hist:[],histIdx:-1
 };
 const $=id=>document.getElementById(id);
 
@@ -684,12 +681,23 @@ function stopIdle(){clearInterval(S.idleTm);S.idleTm=null}
 /* =========== URL 검증 =========== */
 const BAD_SCHEME=/^(javascript|data|vbscript|file|blob|about|chrome|chrome-extension|chrome-untrusted|edge|filesystem|view-source|intent|ws|wss|ftp|mailto|tel|sms)\s*:/i;
 
+function looksLikeUrl(s){
+  if(/^[a-z][a-z0-9+.-]*:\/\//i.test(s))return true;
+  if(/^\/\//.test(s))return true;
+  if(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z]{2,})/i.test(s))return true;
+  if(/^localhost(:|\/|$)/.test(s))return true;
+  return false;
+}
+
 function normUrl(raw){
   let t=String(raw||'').trim();
   if(!t)return{err:'주소를 입력하세요.'};
   if(t.length>MAX_URL)return{err:'주소가 너무 깁니다.'};
   if(BAD_SCHEME.test(t))return{err:'지원하지 않는 프로토콜입니다. https:// 주소를 입력하세요.'};
   let note='';
+  if(!looksLikeUrl(t)){
+    return{url:'https://duckduckgo.com/?q='+encodeURIComponent(t),note:'DuckDuckGo 검색: '+t};
+  }
   if(/^[a-z][a-z0-9+.-]*:\/\//i.test(t)){/* ok */}
   else if(/^\/\//.test(t))t='https:'+t;
   else{
@@ -697,16 +705,16 @@ function normUrl(raw){
     if(m&&!m[1].includes('.')&&!/^\d/.test(m[2])&&m[1].toLowerCase()!=='localhost')return{err:'지원하지 않는 프로토콜입니다.'};
     t='https://'+t;
   }
-  let u;try{u=new URL(t)}catch(e){return{err:'올바른 주소 형식이 아닙니다. 예: https://example.com'}}
+  let u;try{u=new URL(t)}catch(e){return{url:'https://duckduckgo.com/?q='+encodeURIComponent(raw.trim()),note:'DuckDuckGo 검색: '+raw.trim()}}
   if(u.protocol==='http:'){u.protocol='https:';note='HTTP→HTTPS로 변환했습니다.'}
   else if(u.protocol!=='https:')return{err:'https:// 주소만 사용할 수 있습니다.'};
   if(u.username||u.password)return{err:'사용자 인증이 포함된 주소는 사용할 수 없습니다.'};
   const h=u.hostname;
   if(!h.startsWith('[')&&!h.endsWith(']')){
-    if(!/^[a-z0-9.-]+$/.test(h))return{err:'올바른 도메인이 아닙니다.'};
+    if(!/^[a-z0-9.-]+$/.test(h))return{url:'https://duckduckgo.com/?q='+encodeURIComponent(raw.trim()),note:'DuckDuckGo 검색: '+raw.trim()};
     const l=h.split('.');
-    if(h!=='localhost'&&l.length<2)return{err:'올바른 도메인이 아닙니다.'};
-    if(l.some(x=>!x||x.length>63||x.startsWith('-')||x.endsWith('-')))return{err:'올바른 도메인이 아닙니다.'};
+    if(h!=='localhost'&&l.length<2)return{url:'https://duckduckgo.com/?q='+encodeURIComponent(raw.trim()),note:'DuckDuckGo 검색: '+raw.trim()};
+    if(l.some(x=>!x||x.length>63||x.startsWith('-')||x.endsWith('-')))return{url:'https://duckduckgo.com/?q='+encodeURIComponent(raw.trim()),note:'DuckDuckGo 검색: '+raw.trim()};
   }
   if((location.protocol==='https:'||location.protocol==='http:')&&u.origin===location.origin)return{err:'QuietSpace 자체 주소는 열 수 없습니다.'};
   return{url:u.href,note};
@@ -717,40 +725,9 @@ function hostOf(url){try{return new URL(url).hostname}catch(e){return''}}
 function isBlocker(url){
   let u;try{u=new URL(url)}catch(e){return false}
   const h=u.hostname;
-  if((h==='www.youtube.com'||h==='youtube.com'||h==='m.youtube.com')&&u.pathname.startsWith('/embed/'))return false;
   return BLOCKERS.some(d=>h===d||h.endsWith('.'+d));
 }
 
-function ytEmbed(url){
-  let u;try{u=new URL(url)}catch(e){return null}
-  let id=null;
-  if(['www.youtube.com','youtube.com','m.youtube.com'].includes(u.hostname)){
-    if(u.pathname==='/watch')id=u.searchParams.get('v');
-    else if(u.pathname.startsWith('/shorts/'))id=u.pathname.split('/')[2];
-  }else if(u.hostname==='youtu.be')id=u.pathname.slice(1);
-  return id&&/^[A-Za-z0-9_-]{11}$/.test(id)?'https://www.youtube-nocookie.com/embed/'+id:null;
-}
-
-function chzzkEmbed(url){
-  let u;try{u=new URL(url)}catch(e){return null}
-  if(u.hostname!=='chzzk.naver.com'&&u.hostname!=='www.chzzk.naver.com')return null;
-  const lm=u.pathname.match(/^\/live\/([a-f0-9]+)/i);
-  if(lm)return'https://chzzk.naver.com/embed/live/'+lm[1];
-  const vm=u.pathname.match(/^\/video\/(\d+)/);
-  if(vm)return'https://chzzk.naver.com/embed/video/'+vm[1];
-  return null;
-}
-
-function soopEmbed(url){
-  let u;try{u=new URL(url)}catch(e){return null}
-  if(!u.hostname.endsWith('sooplive.co.kr')&&!u.hostname.endsWith('soop.co.kr'))return null;
-  const parts=u.pathname.split('/').filter(Boolean);
-  if(parts.length>=2&&/^\d+$/.test(parts[1]))return'https://play.sooplive.co.kr/'+parts[0]+'/'+parts[1]+'/embed';
-  if(parts.length===1&&/^[a-zA-Z0-9_]+$/.test(parts[0]))return'https://play.sooplive.co.kr/'+parts[0]+'/embed';
-  return null;
-}
-
-function tryEmbed(url){return ytEmbed(url)||chzzkEmbed(url)||soopEmbed(url)}
 
 /* =========== 뷰어 (iframe + 재시도) =========== */
 function sbx(){
@@ -766,16 +743,36 @@ function killFrame(){
   const old=$('fwrap').querySelector('iframe');if(old)old.remove();
 }
 
-function openViewer(url){
+function openViewer(url,skipHist){
   killFrame();S.curUrl=url;
-  const embed=tryEmbed(url);S.loadUrl=embed||('/p/'+url);S.retries=0;
+  S.loadUrl='/p/'+url;S.retries=0;
+  if(!skipHist){
+    S.hist.length=S.histIdx+1;
+    S.hist.push(url);S.histIdx=S.hist.length-1;
+  }
+  updNav();
   $('dash').hidden=true;$('viewer').hidden=false;
   $('v-host').textContent=hostOf(url);$('v-host').title=url;
+  $('addr-in').value=url;
   $('v-help').open=false;
-  if(embed)setMsg('addr-msg','임베드 플레이어로 자동 변환됨 — Chrome 기록에 남지 않습니다.','ok');
-  else setMsg('addr-msg','프록시 모드로 불러오는 중 — Chrome 기록에 남지 않습니다.','ok');
+  setMsg('addr-msg','프록시 모드 — Chrome 기록에 남지 않습니다.','ok');
   renderBlockNotice();
   attempt(S.loadUrl);
+}
+function updNav(){
+  $('v-back').disabled=S.histIdx<1;
+  $('v-fwd').disabled=S.histIdx>=S.hist.length-1;
+}
+function goBack(){
+  if(S.histIdx<1)return;
+  S.histIdx--;openViewer(S.hist[S.histIdx],true);
+}
+function goFwd(){
+  if(S.histIdx>=S.hist.length-1)return;
+  S.histIdx++;openViewer(S.hist[S.histIdx],true);
+}
+function doRefresh(){
+  if(S.curUrl)openViewer(S.curUrl,true);
 }
 
 function attempt(url){
@@ -790,7 +787,7 @@ function attempt(url){
   f.setAttribute('referrerpolicy','no-referrer');
   f.setAttribute('allow','fullscreen');
   f.setAttribute('loading','eager');
-  if(S.store.set.cred&&credOk()&&!url.startsWith('/p/')&&!/\/embed\//i.test(url))f.credentialless=true;
+  if(S.store.set.cred&&credOk())f.credentialless=true;
 
   f.addEventListener('load',function onLoad(){
     clearTimeout(S.frameTm);S.frameTm=null;
@@ -813,7 +810,6 @@ function attempt(url){
 
 function showErrAnalysis(){
   clearTimeout(S.frameTm);S.frameTm=null;
-  const url=S.curUrl,wasEmbed=S.loadUrl!==S.curUrl;
   const wrap=$('v-load');
   while(wrap.firstChild)wrap.removeChild(wrap.firstChild);
   wrap.hidden=false;
@@ -824,25 +820,16 @@ function showErrAnalysis(){
   h.textContent='5회 시도 후 로드 실패 — 오류 분석';
   box.appendChild(h);
 
-  const reasons=[];
-  if(wasEmbed)reasons.push('임베드 플레이어('+hostOf(S.loadUrl)+')로 변환해 시도했으나 역시 실패했습니다.');
-  else reasons.push('프록시를 통해 시도했으나 실패했습니다.');
-  reasons.push('네트워크 연결이 불안정하거나 사이트가 응답하지 않을 수 있습니다.');
-  reasons.push('학교 네트워크 필터가 해당 사이트를 차단했을 수 있습니다.');
-  reasons.push('사이트의 JavaScript가 프록시 환경에서 정상 동작하지 않을 수 있습니다.');
+  const reasons=['프록시를 통해 시도했으나 실패했습니다.',
+    '네트워크 연결이 불안정하거나 사이트가 응답하지 않을 수 있습니다.',
+    '학교 네트워크 필터가 해당 사이트를 차단했을 수 있습니다.',
+    '사이트의 JavaScript가 프록시 환경에서 정상 동작하지 않을 수 있습니다.'];
 
   const ul=document.createElement('ul');
   reasons.forEach(r=>{const li=document.createElement('li');li.textContent=r;ul.appendChild(li)});
   box.appendChild(ul);
 
-  const altH=document.createElement('p');altH.style.fontWeight='600';altH.style.marginTop='.5rem';altH.textContent='대안:';
-  box.appendChild(altH);
-
-  const row=document.createElement('div');row.className='row';row.style.gap='.4rem';
-
-  if(!wasEmbed){const embed=tryEmbed(url);
-  if(embed){const eb=document.createElement('button');eb.type='button';eb.textContent='임베드 플레이어로 열기';
-  eb.addEventListener('click',()=>navTo(embed));row.appendChild(eb)}}
+  const row=document.createElement('div');row.className='row';row.style.gap='.4rem';row.style.marginTop='.5rem';
 
   const ntb=document.createElement('button');ntb.type='button';ntb.textContent='새 탭에서 열기';
   ntb.addEventListener('click',openNewTab);row.appendChild(ntb);
@@ -850,21 +837,16 @@ function showErrAnalysis(){
   const cp=document.createElement('button');cp.type='button';cp.textContent='주소 복사';
   cp.addEventListener('click',copyUrl);row.appendChild(cp);
 
-  const retry=document.createElement('button');retry.type='button';retry.className='btn-p';retry.textContent='처음부터 다시 시도';
+  const retry=document.createElement('button');retry.type='button';retry.className='btn-p';retry.textContent='다시 시도';
   retry.addEventListener('click',()=>{if(S.curUrl)openViewer(S.curUrl)});row.appendChild(retry);
 
   box.appendChild(row);
-
-  const tip=document.createElement('p');tip.className='hint';tip.style.marginTop='.6rem';
-  tip.textContent='iframe에서 본 사이트는 Chrome 기록에 남지 않습니다. 새 탭으로 열 경우 시크릿 모드(Ctrl+Shift+N)를 사용하세요.';
-  box.appendChild(tip);
-
   wrap.appendChild(box);
 }
 
 function renderBlockNotice(){$('v-block').hidden=true}
 
-function closeViewer(){killFrame();S.curUrl=null;S.loadUrl=null;$('addr-in').value='';setMsg('addr-msg','');showDash()}
+function closeViewer(){killFrame();S.curUrl=null;S.loadUrl=null;S.hist=[];S.histIdx=-1;$('addr-in').value='';setMsg('addr-msg','');showDash()}
 function showDash(){$('viewer').hidden=true;$('dash').hidden=false}
 
 function navTo(raw){
@@ -1121,11 +1103,11 @@ function bind(){
   $('btn-set').addEventListener('click',openSet);
 
   $('v-close').addEventListener('click',closeViewer);
-  $('v-ref').addEventListener('click',()=>{if(S.curUrl)openViewer(S.curUrl)});
+  $('v-back').addEventListener('click',goBack);
+  $('v-fwd').addEventListener('click',goFwd);
+  $('v-ref').addEventListener('click',doRefresh);
   $('v-save').addEventListener('click',()=>{if(S.curUrl)openItemDlg('bookmark',null,S.curUrl)});
   $('v-tab').addEventListener('click',openNewTab);
-  $('v-copy').addEventListener('click',copyUrl);
-
   $('add-sc').addEventListener('click',()=>openItemDlg('shortcut'));
   $('add-bm').addEventListener('click',()=>openItemDlg('bookmark'));
   $('f-item').addEventListener('submit',saveItem);
@@ -1145,6 +1127,9 @@ function bind(){
     const tag=(ev.target&&ev.target.tagName)||'';
     const typing=tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
     if(ev.altKey&&!ev.ctrlKey&&!ev.metaKey&&(ev.key==='l'||ev.key==='L')){ev.preventDefault();lock()}
+    else if(ev.altKey&&!ev.ctrlKey&&!ev.metaKey&&ev.key==='ArrowLeft'){ev.preventDefault();goBack()}
+    else if(ev.altKey&&!ev.ctrlKey&&!ev.metaKey&&ev.key==='ArrowRight'){ev.preventDefault();goFwd()}
+    else if(ev.key==='F5'&&!ev.ctrlKey){ev.preventDefault();doRefresh()}
     else if(ev.key==='/'&&!typing&&!document.querySelector('dialog[open]')){ev.preventDefault();$('addr-in').focus();$('addr-in').select()}
   });
 
