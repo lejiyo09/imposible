@@ -692,7 +692,7 @@ function normUrl(raw){
   if(BAD_SCHEME.test(t))return{err:'지원하지 않는 프로토콜입니다. https:// 주소를 입력하세요.'};
   let note='';
   if(!looksLikeUrl(t)){
-    return{url:'https://duckduckgo.com/?q='+encodeURIComponent(t),note:'DuckDuckGo 검색: '+t};
+    return{url:'https://html.duckduckgo.com/html/?q='+encodeURIComponent(t),note:'DuckDuckGo 검색: '+t};
   }
   if(/^[a-z][a-z0-9+.-]*:\/\//i.test(t)){/* ok */}
   else if(/^\/\//.test(t))t='https:'+t;
@@ -701,16 +701,16 @@ function normUrl(raw){
     if(m&&!m[1].includes('.')&&!/^\d/.test(m[2])&&m[1].toLowerCase()!=='localhost')return{err:'지원하지 않는 프로토콜입니다.'};
     t='https://'+t;
   }
-  let u;try{u=new URL(t)}catch(e){return{url:'https://duckduckgo.com/?q='+encodeURIComponent(raw.trim()),note:'DuckDuckGo 검색: '+raw.trim()}}
+  let u;try{u=new URL(t)}catch(e){return{url:'https://html.duckduckgo.com/html/?q='+encodeURIComponent(raw.trim()),note:'DuckDuckGo 검색: '+raw.trim()}}
   if(u.protocol==='http:'){u.protocol='https:';note='HTTP→HTTPS로 변환했습니다.'}
   else if(u.protocol!=='https:')return{err:'https:// 주소만 사용할 수 있습니다.'};
   if(u.username||u.password)return{err:'사용자 인증이 포함된 주소는 사용할 수 없습니다.'};
   const h=u.hostname;
   if(!h.startsWith('[')&&!h.endsWith(']')){
-    if(!/^[a-z0-9.-]+$/.test(h))return{url:'https://duckduckgo.com/?q='+encodeURIComponent(raw.trim()),note:'DuckDuckGo 검색: '+raw.trim()};
+    if(!/^[a-z0-9.-]+$/.test(h))return{url:'https://html.duckduckgo.com/html/?q='+encodeURIComponent(raw.trim()),note:'DuckDuckGo 검색: '+raw.trim()};
     const l=h.split('.');
-    if(h!=='localhost'&&l.length<2)return{url:'https://duckduckgo.com/?q='+encodeURIComponent(raw.trim()),note:'DuckDuckGo 검색: '+raw.trim()};
-    if(l.some(x=>!x||x.length>63||x.startsWith('-')||x.endsWith('-')))return{url:'https://duckduckgo.com/?q='+encodeURIComponent(raw.trim()),note:'DuckDuckGo 검색: '+raw.trim()};
+    if(h!=='localhost'&&l.length<2)return{url:'https://html.duckduckgo.com/html/?q='+encodeURIComponent(raw.trim()),note:'DuckDuckGo 검색: '+raw.trim()};
+    if(l.some(x=>!x||x.length>63||x.startsWith('-')||x.endsWith('-')))return{url:'https://html.duckduckgo.com/html/?q='+encodeURIComponent(raw.trim()),note:'DuckDuckGo 검색: '+raw.trim()};
   }
   if((location.protocol==='https:'||location.protocol==='http:')&&u.origin===location.origin)return{err:'QuietSpace 자체 주소는 열 수 없습니다.'};
   return{url:u.href,note};
