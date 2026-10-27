@@ -328,18 +328,20 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
         <h3>이 앱이 하는 일</h3>
         <ul>
           <li>방문한 주소, 검색어, 방문 시간, 페이지 제목을 <strong>자동으로 저장하지 않습니다.</strong></li>
+          <li>iframe 안에서 본 사이트는 <strong>Chrome 방문 기록에 나타나지 않습니다.</strong> Chrome 기록에는 QuietSpace 페이지 주소만 남습니다.</li>
+          <li>YouTube, 치지직, 숲 등 영상 사이트는 자동으로 임베드 플레이어로 변환하여 iframe에서 재생합니다.</li>
           <li>현재 주소는 보는 동안에만 메모리에 있고, 잠금·닫기·초기화 시 지웁니다.</li>
           <li>직접 "저장"한 항목만 이 기기 저장소에 AES-GCM으로 암호화해 보관합니다.</li>
           <li>분석·광고·추적 코드, 외부 라이브러리를 쓰지 않으며 어떤 서버로도 주소를 전송하지 않습니다.</li>
         </ul>
         <h3>이 앱이 제어할 수 없는 것</h3>
         <ul>
-          <li>Chrome 방문 기록 및 Chrome 동기화</li>
-          <li>Google 계정의 웹 및 앱 활동</li>
+          <li>Chrome 방문 기록 — iframe 내 탐색은 기록되지 않으나, "새 탭"으로 연 사이트는 Chrome 기록에 남습니다</li>
+          <li>Google 계정의 웹 및 앱 활동 (Google에 로그인 상태라면 서버 측 활동 기록이 남을 수 있음)</li>
           <li>학교 기기 관리 정책·네트워크·필터링 기록</li>
           <li>방문한 사이트가 자체적으로 남기는 기록</li>
         </ul>
-        <p class="hint">이 앱은 위 기록을 지우거나 막거나 숨기지 않으며, 그렇게 할 수도 없습니다.</p>
+        <p class="hint">위 항목은 앱 밖의 시스템이므로 이 앱이 지우거나 차단할 수 없습니다.</p>
       </aside>
     </div>
 
@@ -354,13 +356,14 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
       </div>
       <div id="v-block" class="banner vnote" hidden></div>
       <details class="banner vnote" id="v-help">
-        <summary>화면이 비어 있거나 오류가 보이나요?</summary>
+        <summary>도움말 — iframe 브라우징과 Chrome 기록</summary>
         <ul style="margin:.3rem 0;padding-left:1.1rem;font-size:.88rem">
-          <li>많은 사이트가 보안상 iframe 표시를 차단합니다. 브라우저는 차단 여부를 앱에 알려 주지 않으므로 자동 판별이 불가능합니다.</li>
-          <li>대안 1: 사이트의 임베드용 주소가 있는지 확인합니다 (예: YouTube "퍼가기" 주소).</li>
-          <li>대안 2: <strong>새 탭</strong> 버튼으로 직접 엽니다. 이 경우 Chrome 방문 기록에 남을 수 있습니다.</li>
-          <li>대안 3: <button type="button" class="btn-g" id="v-copy" style="min-height:30px;padding:.15rem .4rem;font-size:.85rem"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>주소 복사</button> 후 시크릿 탭에 붙여넣으면 Chrome 기록에 남지 않습니다.</li>
-          <li>iframe 제한: 로그인 유지, 팝업, 다운로드, 알림 등 일부 기능이 작동하지 않을 수 있습니다.</li>
+          <li><strong>iframe 안에서 본 사이트는 Chrome 방문 기록에 남지 않습니다.</strong> Chrome 기록에는 QuietSpace 주소만 표시됩니다.</li>
+          <li>YouTube, 치지직(Chzzk), 숲(SOOP) URL은 자동으로 임베드 플레이어로 변환합니다.</li>
+          <li>일부 사이트(네이버·구글 메인 등)는 서버 보안 설정(X-Frame-Options)으로 iframe 표시를 차단합니다. 이는 사이트 측 제한이라 앱에서 우회할 수 없습니다.</li>
+          <li>대안: <strong>새 탭</strong> 버튼으로 직접 열 수 있습니다. 이 경우 Chrome 기록에 남을 수 있으므로, 시크릿 모드(Ctrl+Shift+N)를 권장합니다.</li>
+          <li><button type="button" class="btn-g" id="v-copy" style="min-height:30px;padding:.15rem .4rem;font-size:.85rem"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>주소 복사</button> 후 시크릿 탭에 붙여넣으면 Chrome 기록에 남지 않습니다.</li>
+          <li>다운로드, 전체 화면, 모달 등 확장 기능이 활성화되어 있습니다.</li>
         </ul>
       </details>
       <div class="fwrap" id="fwrap">
@@ -481,14 +484,12 @@ const IDLE_CK=10000,FRAME_TO=10000,MAX_RETRY=5,RETRY_DELAY=1500;
 const MAX_ITEMS=100,MAX_URL=2048;
 const IDLE_OPTS=[1,3,5,10,15];
 
-const BLOCKERS=['google.com','github.com','facebook.com','instagram.com','x.com','twitter.com',
-  'linkedin.com','discord.com','chatgpt.com','claude.ai','naver.com','daum.net',
-  'kakao.com','reddit.com','amazon.com','apple.com','microsoft.com','netflix.com','twitch.tv'];
+const BLOCKERS=[];
 
 /* =========== 상태 (메모리 전용) =========== */
 const S={
   mode:'secure',reasons:[],store:null,unlocked:false,key:null,items:[],
-  curUrl:null,busy:false,lastAct:Date.now(),
+  curUrl:null,loadUrl:null,busy:false,lastAct:Date.now(),
   idleTm:null,lockTm:null,frameTm:null,toastTm:null,
   editId:null,swOk:false,retries:0
 };
@@ -663,7 +664,7 @@ function enter(){
 function lock(){
   if(S.mode!=='secure'||!S.store.pin)return;
   document.querySelectorAll('dialog[open]').forEach(d=>d.close());
-  killFrame();S.curUrl=null;
+  killFrame();S.curUrl=null;S.loadUrl=null;
   $('viewer').hidden=true;$('dash').hidden=false;
   $('addr-in').value='';setMsg('addr-msg','');
   clr(['it-name','it-url','pc-cur','pc-new','pc-new2']);
@@ -730,9 +731,30 @@ function ytEmbed(url){
   return id&&/^[A-Za-z0-9_-]{11}$/.test(id)?'https://www.youtube-nocookie.com/embed/'+id:null;
 }
 
+function chzzkEmbed(url){
+  let u;try{u=new URL(url)}catch(e){return null}
+  if(u.hostname!=='chzzk.naver.com'&&u.hostname!=='www.chzzk.naver.com')return null;
+  const lm=u.pathname.match(/^\/live\/([a-f0-9]+)/i);
+  if(lm)return'https://chzzk.naver.com/embed/live/'+lm[1];
+  const vm=u.pathname.match(/^\/video\/(\d+)/);
+  if(vm)return'https://chzzk.naver.com/embed/video/'+vm[1];
+  return null;
+}
+
+function soopEmbed(url){
+  let u;try{u=new URL(url)}catch(e){return null}
+  if(!u.hostname.endsWith('sooplive.co.kr')&&!u.hostname.endsWith('soop.co.kr'))return null;
+  const parts=u.pathname.split('/').filter(Boolean);
+  if(parts.length>=2&&/^\d+$/.test(parts[1]))return'https://play.sooplive.co.kr/'+parts[0]+'/'+parts[1]+'/embed';
+  if(parts.length===1&&/^[a-zA-Z0-9_]+$/.test(parts[0]))return'https://play.sooplive.co.kr/'+parts[0]+'/embed';
+  return null;
+}
+
+function tryEmbed(url){return ytEmbed(url)||chzzkEmbed(url)||soopEmbed(url)}
+
 /* =========== 뷰어 (iframe + 재시도) =========== */
 function sbx(){
-  const t=['allow-scripts','allow-same-origin','allow-forms'];
+  const t=['allow-scripts','allow-same-origin','allow-forms','allow-downloads','allow-modals','allow-presentation','allow-top-navigation-by-user-activation'];
   if(S.store.set.popups)t.push('allow-popups','allow-popups-to-escape-sandbox');
   return t.join(' ');
 }
@@ -745,12 +767,14 @@ function killFrame(){
 }
 
 function openViewer(url){
-  killFrame();S.curUrl=url;S.retries=0;
+  killFrame();S.curUrl=url;
+  const embed=tryEmbed(url);S.loadUrl=embed||url;S.retries=0;
   $('dash').hidden=true;$('viewer').hidden=false;
   $('v-host').textContent=hostOf(url);$('v-host').title=url;
   $('v-help').open=false;
-  renderBlockNotice(url);
-  attempt(url);
+  if(embed)setMsg('addr-msg','임베드 플레이어로 자동 변환됨 — iframe 내 탐색은 Chrome 기록에 남지 않습니다.','ok');
+  renderBlockNotice();
+  attempt(S.loadUrl);
 }
 
 function attempt(url){
@@ -779,15 +803,16 @@ function attempt(url){
   S.frameTm=setTimeout(()=>{
     if(S.retries<MAX_RETRY){
       $('v-ltxt').textContent='응답이 늦습니다. 자동 재시도 중… ('+S.retries+'/'+MAX_RETRY+')';
-      setTimeout(()=>{if(S.curUrl===url)attempt(url)},RETRY_DELAY);
+      setTimeout(()=>{if(S.loadUrl===url)attempt(url)},RETRY_DELAY);
     }else{
-      showErrAnalysis(url);
+      showErrAnalysis();
     }
   },FRAME_TO);
 }
 
-function showErrAnalysis(url){
+function showErrAnalysis(){
   clearTimeout(S.frameTm);S.frameTm=null;
+  const url=S.curUrl,wasEmbed=S.loadUrl!==S.curUrl;
   const wrap=$('v-load');
   while(wrap.firstChild)wrap.removeChild(wrap.firstChild);
   wrap.hidden=false;
@@ -799,7 +824,7 @@ function showErrAnalysis(url){
   box.appendChild(h);
 
   const reasons=[];
-  if(isBlocker(url))reasons.push('이 사이트('+hostOf(url)+')는 iframe 표시를 차단하는 것으로 알려져 있습니다 (X-Frame-Options / CSP frame-ancestors).');
+  if(wasEmbed)reasons.push('임베드 플레이어('+hostOf(S.loadUrl)+')로 변환해 시도했으나 역시 실패했습니다.');
   reasons.push('사이트가 X-Frame-Options 또는 Content-Security-Policy 헤더로 iframe 삽입을 금지했을 가능성이 높습니다.');
   reasons.push('네트워크 연결이 불안정하거나 사이트가 응답하지 않을 수 있습니다.');
   reasons.push('학교 네트워크 필터가 해당 사이트를 차단했을 수 있습니다.');
@@ -814,11 +839,9 @@ function showErrAnalysis(url){
 
   const row=document.createElement('div');row.className='row';row.style.gap='.4rem';
 
-  const embed=ytEmbed(url);
-  if(embed){
-    const eb=document.createElement('button');eb.type='button';eb.textContent='YouTube 임베드로 열기';
-    eb.addEventListener('click',()=>navTo(embed));row.appendChild(eb);
-  }
+  if(!wasEmbed){const embed=tryEmbed(url);
+  if(embed){const eb=document.createElement('button');eb.type='button';eb.textContent='임베드 플레이어로 열기';
+  eb.addEventListener('click',()=>navTo(embed));row.appendChild(eb)}}
 
   const ntb=document.createElement('button');ntb.type='button';ntb.textContent='새 탭에서 열기';
   ntb.addEventListener('click',openNewTab);row.appendChild(ntb);
@@ -832,29 +855,15 @@ function showErrAnalysis(url){
   box.appendChild(row);
 
   const tip=document.createElement('p');tip.className='hint';tip.style.marginTop='.6rem';
-  tip.textContent='팁: 주소를 복사한 뒤 Chrome 시크릿 모드(Ctrl+Shift+N)에 붙여넣으면 Chrome 기록에 남지 않습니다.';
+  tip.textContent='iframe에서 본 사이트는 Chrome 기록에 남지 않습니다. 새 탭으로 열 경우 시크릿 모드(Ctrl+Shift+N)를 사용하세요.';
   box.appendChild(tip);
 
   wrap.appendChild(box);
 }
 
-function renderBlockNotice(url){
-  const b=$('v-block');
-  while(b.firstChild)b.removeChild(b.firstChild);
-  const embed=ytEmbed(url);
-  if(!isBlocker(url)&&!embed){b.hidden=true;return}
-  b.hidden=false;
-  b.appendChild(document.createTextNode('이 사이트는 iframe 표시를 차단하는 것으로 알려져 있어 빈 화면이나 오류가 보일 수 있습니다. '));
-  if(embed){
-    const btn=document.createElement('button');btn.type='button';btn.className='btn-g';
-    btn.style.cssText='min-height:30px;padding:.15rem .5rem;font-size:.88rem';
-    btn.textContent='YouTube 임베드 플레이어로 열기';
-    btn.addEventListener('click',()=>navTo(embed));
-    b.appendChild(btn);
-  }
-}
+function renderBlockNotice(){$('v-block').hidden=true}
 
-function closeViewer(){killFrame();S.curUrl=null;$('addr-in').value='';setMsg('addr-msg','');showDash()}
+function closeViewer(){killFrame();S.curUrl=null;S.loadUrl=null;$('addr-in').value='';setMsg('addr-msg','');showDash()}
 function showDash(){$('viewer').hidden=true;$('dash').hidden=false}
 
 function navTo(raw){
@@ -1039,7 +1048,7 @@ async function resetAll(){
     msg:'PIN, 바로가기·즐겨찾기, 앱 설정, 오프라인 캐시가 이 기기에서 삭제됩니다. 되돌릴 수 없습니다.\n\n(Chrome 방문 기록이나 Google 계정 활동은 삭제되지 않습니다.)',
     ok:'초기화',req:'초기화'});
   if(!ok)return;
-  killFrame();S.curUrl=null;S.items=[];S.key=null;
+  killFrame();S.curUrl=null;S.loadUrl=null;S.items=[];S.key=null;
   await clearAll();location.reload();
 }
 
