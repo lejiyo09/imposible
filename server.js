@@ -26,9 +26,13 @@ function safeDest(h) {
   return true;
 }
 
+function errPage(title, msg) {
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:system-ui,sans-serif;padding:2rem;color:#333;max-width:500px;margin:2rem auto"><h2 style="color:#c33">' + title + '</h2><p>' + msg + '</p></body></html>';
+}
+
 app.all('/p/*', async (req, res) => {
   const raw = req.originalUrl.slice(3);
-  if (!raw) return res.status(400).send('URL required');
+  if (!raw) return res.status(400).type('html').send(errPage('URL 필요', '프록시 대상 URL을 지정하세요.'));
 
   let target;
   try {
@@ -36,7 +40,7 @@ app.all('/p/*', async (req, res) => {
     if (target.protocol !== 'https:' && target.protocol !== 'http:') throw 0;
     if (!safeDest(target.hostname)) throw 0;
   } catch {
-    return res.status(400).send('Invalid URL');
+    return res.status(400).type('html').send(errPage('잘못된 URL', '유효한 https:// 주소를 입력하세요.'));
   }
 
   try {
@@ -51,10 +55,15 @@ app.all('/p/*', async (req, res) => {
         'Accept-Language': req.headers['accept-language'] || 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
         'Accept-Encoding': 'identity',
         'Referer': target.origin + '/',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'cross-site',
       },
       redirect: 'follow',
       signal: ac.signal,
     };
+
+    if (req.headers.cookie) opts.headers['Cookie'] = req.headers.cookie;
 
     if (req.method === 'POST' && req.body && req.body.length) {
       opts.body = req.body;
@@ -89,18 +98,19 @@ app.all('/p/*', async (req, res) => {
 
     if (ct.includes('text/html')) {
       let html = await resp.text();
-      if (html.length > 10 * 1024 * 1024) return res.status(413).send('Too large');
-      html = rewrite(html, target);
+      if (html.length > 10 * 1024 * 1024) return res.status(413).type('html').send(errPage('크기 초과', '10MB를 초과합니다.'));
+      const finalUrl = resp.url || target.href;
+      html = rewrite(html, finalUrl);
       res.setHeader('Content-Type', resp.headers.get('content-type') || 'text/html; charset=utf-8');
       res.send(html);
     } else {
       const buf = Buffer.from(await resp.arrayBuffer());
-      if (buf.length > 10 * 1024 * 1024) return res.status(413).send('Too large');
+      if (buf.length > 10 * 1024 * 1024) return res.status(413).type('html').send(errPage('크기 초과', '10MB를 초과합니다.'));
       res.send(buf);
     }
   } catch (e) {
-    if (e.name === 'AbortError') return res.status(504).send('Timeout');
-    res.status(502).send('Proxy error');
+    if (e.name === 'AbortError') return res.status(504).type('html').send(errPage('시간 초과', '사이트가 15초 내에 응답하지 않았습니다.'));
+    res.status(502).type('html').send(errPage('프록시 오류', '사이트에 연결할 수 없습니다.'));
   }
 });
 
@@ -108,13 +118,12 @@ function esc(s) {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function rewrite(html, base) {
-  const href = base.href;
-
+function rewrite(html, baseHref) {
   html = html.replace(/<base\s[^>]*>/gi, '');
+  html = html.replace(/<meta[^>]*http-equiv\s*=\s*["']?\s*Content-Security-Policy\s*["']?[^>]*>/gi, '');
 
-  const nav = `<base href="${esc(href)}">
-<script>(function(){try{var O=window.location.origin,B=document.baseURI;function px(h){if(!h||h[0]==="#")return h;if(/^(javascript|mailto|tel|data|blob):/i.test(h))return h;try{var u=new URL(h,B);if(u.protocol==="https:"||u.protocol==="http:")return O+"/p/"+u.href}catch(x){}return h}document.addEventListener("click",function(e){var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;var h=a.getAttribute("href");if(!h||h[0]==="#"||/^(javascript|mailto|tel|data):/i.test(h))return;e.preventDefault();e.stopPropagation();window.location.href=px(h)},true);document.addEventListener("submit",function(e){var f=e.target;if(!f||f.tagName!=="FORM")return;var a=f.getAttribute("action")||window.location.href;f.setAttribute("action",px(a))},true);var _s=HTMLFormElement.prototype.submit;HTMLFormElement.prototype.submit=function(){var a=this.getAttribute("action")||window.location.href;this.setAttribute("action",px(a));return _s.call(this)};var _o=window.open;window.open=function(u,t,f){if(u)u=px(u);return _o.call(window,u,t,f)};var _f=window.fetch;if(_f)window.fetch=function(i,n){if(typeof i==="string"){try{var u=new URL(i,B);if(u.origin!==O)i=O+"/p/"+u.href}catch(x){}}return _f.call(window,i,n)};var _x=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u,a,s,p){try{var r=new URL(u,B);if(r.origin!==O)u=O+"/p/"+r.href}catch(x){}return _x.call(this,m,u,a,s,p)}}catch(x){}})();<\/script>
+  const nav = `<base href="${esc(baseHref)}">
+<script>(function(){try{var O=window.location.origin,B=document.baseURI;function px(h){if(!h||h[0]==="#")return h;if(/^(javascript|mailto|tel|data|blob):/i.test(h))return h;try{var u=new URL(h,B);if(u.protocol==="https:"||u.protocol==="http:")return O+"/p/"+u.href}catch(x){}return h}document.addEventListener("click",function(e){var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;var h=a.getAttribute("href");if(!h||h[0]==="#"||/^(javascript|mailto|tel|data):/i.test(h))return;e.preventDefault();e.stopPropagation();window.location.href=px(h)},true);document.addEventListener("submit",function(e){var f=e.target;if(!f||f.tagName!=="FORM")return;var a=f.getAttribute("action")||window.location.href;f.setAttribute("action",px(a))},true);var _s=HTMLFormElement.prototype.submit;HTMLFormElement.prototype.submit=function(){var a=this.getAttribute("action")||window.location.href;this.setAttribute("action",px(a));return _s.call(this)};var _o=window.open;window.open=function(u,t,f){if(u)u=px(u);return _o.call(window,u,t,f)};var _ps=history.pushState,_rs=history.replaceState;history.pushState=function(s,t,u){try{return _ps.call(this,s,t,u)}catch(e){try{return _ps.call(this,s,t)}catch(e2){}}};history.replaceState=function(s,t,u){try{return _rs.call(this,s,t,u)}catch(e){try{return _rs.call(this,s,t)}catch(e2){}}};var _f=window.fetch;if(_f)window.fetch=function(i,n){n=n?Object.assign({},n):{};if(typeof i==="string"){try{var u=new URL(i,B);if(u.origin!==O){i=O+"/p/"+u.href;if(n.mode==="same-origin")n.mode="cors"}}catch(x){}}else if(i&&typeof i.url==="string"){try{var u2=new URL(i.url,B);if(u2.origin!==O){n.method=n.method||i.method;n.mode="cors";if(!n.headers){var hd={};try{i.headers.forEach(function(v,k){hd[k]=v})}catch(e){}n.headers=hd}i=O+"/p/"+u2.href}}catch(x){}}return _f.call(window,i,n)};var _x=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u,a,s,p){try{var r=new URL(u,B);if(r.origin!==O)u=O+"/p/"+r.href}catch(x){}return _x.call(this,m,u,a,s,p)}}catch(x){}})();<\/script>
 `;
 
   if (/<head[^>]*>/i.test(html)) {

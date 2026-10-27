@@ -157,12 +157,12 @@ main{flex:1;display:flex;flex-direction:column;width:100%}
 #pol-card li{margin:.15rem 0}
 
 /* ---- 뷰어 ---- */
-#viewer{flex:1;display:flex;flex-direction:column;padding:4px 16px 16px;gap:4px;min-height:0}
-.vbar{display:flex;align-items:center;gap:.25rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:.2rem .35rem}
-.vbar button{min-height:32px;padding:.25rem .5rem;font-size:.85rem}
-.vbar button:disabled{opacity:.35;cursor:not-allowed}
-#v-host{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;padding-left:.25rem;font-size:.85rem}
-.vnote{font-size:.85rem}
+#viewer{flex:1;display:flex;flex-direction:column;padding:2px 16px 16px;min-height:0}
+.vbtn{display:none;min-height:36px;padding:.25rem;min-width:36px}
+.vbtn:disabled{opacity:.35;cursor:not-allowed}
+#addr-form.vw .vbtn{display:inline-flex}
+#addr-form.vw #addr-go{display:none}
+#addr-form.vw #addr-in{border-left:3px solid var(--ok)}
 .fwrap{position:relative;flex:1;min-height:55vh;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:#fff}
 .fwrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
 #v-load{position:absolute;inset:0;display:grid;place-items:center;background:var(--surface);color:var(--text);z-index:2;text-align:center;padding:16px}
@@ -290,13 +290,19 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
   </header>
 
   <form id="addr-form" autocomplete="off" novalidate role="search" aria-label="웹 주소로 이동">
+    <button type="button" id="v-back" class="vbtn" title="뒤로 (Alt+←)" disabled><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg></button>
+    <button type="button" id="v-fwd" class="vbtn" title="앞으로 (Alt+→)" disabled><svg class="ic" aria-hidden="true"><use href="#i-fwd"/></svg></button>
+    <button type="button" id="v-ref" class="vbtn" title="새로고침 (F5)"><svg class="ic" aria-hidden="true"><use href="#i-ref"/></svg></button>
     <div class="fld">
       <svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg>
       <label for="addr-in" class="sr">웹 주소</label>
       <input id="addr-in" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"
              placeholder="주소 또는 검색어 입력 ( / 키로 포커스)" maxlength="2048" aria-describedby="addr-msg">
     </div>
-    <button type="submit" class="btn-p"><svg class="ic" aria-hidden="true"><use href="#i-go"/></svg><span class="bl">이동</span></button>
+    <button type="submit" class="btn-p" id="addr-go"><svg class="ic" aria-hidden="true"><use href="#i-go"/></svg><span class="bl">이동</span></button>
+    <button type="button" id="v-save" class="vbtn" title="즐겨찾기에 저장"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg></button>
+    <button type="button" id="v-tab" class="vbtn" title="새 탭에서 열기"><svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></button>
+    <button type="button" id="v-close" class="vbtn" title="닫기"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
   </form>
   <p class="msg" id="addr-msg" aria-live="polite"></p>
 
@@ -352,16 +358,6 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
 
     <!-- 뷰어 -->
     <section id="viewer" aria-label="웹사이트 보기" hidden>
-      <div class="vbar">
-        <button type="button" id="v-back" title="뒤로 (Alt+←)" disabled><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg><span class="bl">뒤로</span></button>
-        <button type="button" id="v-fwd" title="앞으로 (Alt+→)" disabled><svg class="ic" aria-hidden="true"><use href="#i-fwd"/></svg><span class="bl">앞으로</span></button>
-        <button type="button" id="v-ref" title="새로고침 (F5)"><svg class="ic" aria-hidden="true"><use href="#i-ref"/></svg><span class="bl">새로고침</span></button>
-        <span id="v-host"></span>
-        <button type="button" id="v-save" title="즐겨찾기에 저장"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg><span class="bl">저장</span></button>
-        <button type="button" id="v-tab" title="새 탭에서 열기"><svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg><span class="bl">새 탭</span></button>
-        <button type="button" id="v-close" title="닫기"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg><span class="bl">닫기</span></button>
-      </div>
-      <div id="v-block" class="banner vnote" hidden></div>
       <div class="fwrap" id="fwrap">
         <div id="v-load" role="status" aria-live="polite">
           <div>
@@ -752,11 +748,9 @@ function openViewer(url,skipHist){
   }
   updNav();
   $('dash').hidden=true;$('viewer').hidden=false;
-  $('v-host').textContent=hostOf(url);$('v-host').title=url;
+  $('addr-form').classList.add('vw');
   $('addr-in').value=url;
-  $('v-help').open=false;
-  setMsg('addr-msg','프록시 모드 — Chrome 기록에 남지 않습니다.','ok');
-  renderBlockNotice();
+  setMsg('addr-msg','');
   attempt(S.loadUrl);
 }
 function updNav(){
@@ -844,9 +838,7 @@ function showErrAnalysis(){
   wrap.appendChild(box);
 }
 
-function renderBlockNotice(){$('v-block').hidden=true}
-
-function closeViewer(){killFrame();S.curUrl=null;S.loadUrl=null;S.hist=[];S.histIdx=-1;$('addr-in').value='';setMsg('addr-msg','');showDash()}
+function closeViewer(){killFrame();S.curUrl=null;S.loadUrl=null;S.hist=[];S.histIdx=-1;$('addr-in').value='';setMsg('addr-msg','');$('addr-form').classList.remove('vw');showDash()}
 function showDash(){$('viewer').hidden=true;$('dash').hidden=false}
 
 function navTo(raw){
