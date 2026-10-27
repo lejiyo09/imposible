@@ -731,6 +731,12 @@ function xorDec(s){
   let d;try{d=decodeURIComponent(s)}catch(e){return null}
   let t='';for(let i=0;i<d.length;i++)t+=i%2?String.fromCharCode(d.charCodeAt(i)^2):d[i];return t;
 }
+// public/uv/uv.config.js의 코덱과 같은 규칙: 출처만 인코딩, 경로·쿼리는 그대로.
+function pxEnc(url){const u=new URL(url);return PX_PREFIX+xorEnc(u.origin)+u.pathname+u.search+u.hash}
+function pxDec(rest){
+  const i=rest.indexOf('/');if(i<0)return xorDec(rest);
+  const o=xorDec(rest.slice(0,i));return o===null?null:o+rest.slice(i);
+}
 
 let pxP=null;
 function pxReady(){
@@ -810,12 +816,12 @@ async function openViewer(url,skipHist){
   resetLoader('프록시 준비 중…');
   try{await pxReady()}catch(e){if(S.curUrl===url)showErrAnalysis(e.message);return}
   if(S.curUrl!==url)return;
-  S.loadUrl=PX_PREFIX+xorEnc(url);
+  S.loadUrl=pxEnc(url);
   attempt(S.loadUrl);
 }
 
 function realUrlOf(win){
-  try{const l=win.location;if(l.origin!==location.origin||!l.pathname.startsWith(PX_PREFIX))return null;return xorDec(l.pathname.slice(PX_PREFIX.length))}catch(e){return null}
+  try{const l=win.location;if(l.origin!==location.origin||!l.pathname.startsWith(PX_PREFIX))return null;return pxDec((l.pathname+l.search).slice(PX_PREFIX.length))}catch(e){return null}
 }
 
 // 팝업은 sandbox로 막혀 있으므로, 새 창(target=_blank, window.open)으로 여는 링크를 같은 프레임 안에서 연다.
@@ -826,7 +832,7 @@ function hookFrame(win){
   win.open=function(raw){
     if(raw){
       let u;try{u=new URL(String(raw),realUrlOf(win))}catch(e){u=null}
-      if(u&&(u.protocol==='https:'||u.protocol==='http:'))win.location.href=PX_PREFIX+xorEnc(u.href);
+      if(u&&(u.protocol==='https:'||u.protocol==='http:'))win.location.href=pxEnc(u.href);
     }
     return win;
   };
