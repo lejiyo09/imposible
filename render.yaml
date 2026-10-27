@@ -1,25 +1,9 @@
 services:
   - type: web
     name: quietspace
-    runtime: static
-    buildCommand: echo "Static site — no build step"
-    staticPublishPath: .
-    headers:
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: X-Frame-Options
-        value: DENY
-      - path: /*
-        name: Referrer-Policy
-        value: no-referrer
-      - path: /*
-        name: Permissions-Policy
-        value: interest-cohort=()
-      - path: /sw.js
-        name: Cache-Control
-        value: no-cache
-      - path: /manifest.webmanifest
-        name: Cache-Control
-        value: no-cache
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production

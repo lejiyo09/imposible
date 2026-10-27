@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self'; frame-src https:; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self'; frame-src 'self' https:; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#0f1219">
@@ -356,13 +356,13 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
       </div>
       <div id="v-block" class="banner vnote" hidden></div>
       <details class="banner vnote" id="v-help">
-        <summary>도움말 — iframe 브라우징과 Chrome 기록</summary>
+        <summary>도움말 — 프록시 브라우징과 Chrome 기록</summary>
         <ul style="margin:.3rem 0;padding-left:1.1rem;font-size:.88rem">
-          <li><strong>iframe 안에서 본 사이트는 Chrome 방문 기록에 남지 않습니다.</strong> Chrome 기록에는 QuietSpace 주소만 표시됩니다.</li>
-          <li>YouTube, 치지직(Chzzk), 숲(SOOP) URL은 자동으로 임베드 플레이어로 변환합니다.</li>
-          <li>일부 사이트(네이버·구글 메인 등)는 서버 보안 설정(X-Frame-Options)으로 iframe 표시를 차단합니다. 이는 사이트 측 제한이라 앱에서 우회할 수 없습니다.</li>
-          <li>대안: <strong>새 탭</strong> 버튼으로 직접 열 수 있습니다. 이 경우 Chrome 기록에 남을 수 있으므로, 시크릿 모드(Ctrl+Shift+N)를 권장합니다.</li>
-          <li><button type="button" class="btn-g" id="v-copy" style="min-height:30px;padding:.15rem .4rem;font-size:.85rem"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>주소 복사</button> 후 시크릿 탭에 붙여넣으면 Chrome 기록에 남지 않습니다.</li>
+          <li><strong>모든 사이트가 프록시를 통해 iframe 안에서 열립니다.</strong> Chrome 기록에는 QuietSpace 주소만 표시됩니다.</li>
+          <li>YouTube, 치지직(Chzzk), 숲(SOOP) 동영상 URL은 임베드 플레이어로 자동 변환합니다.</li>
+          <li>네이버, 구글, 메가스터디 등 기존에 차단되던 사이트도 프록시 모드에서 정상적으로 열립니다.</li>
+          <li>프록시 모드에서는 사이트의 일부 기능(로그인, 댓글 작성 등)이 제한될 수 있습니다.</li>
+          <li><button type="button" class="btn-g" id="v-copy" style="min-height:30px;padding:.15rem .4rem;font-size:.85rem"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>주소 복사</button> 후 시크릿 탭(Ctrl+Shift+N)에 붙여넣으면 Chrome 기록 없이 직접 접속 가능합니다.</li>
           <li>다운로드, 전체 화면, 모달 등 확장 기능이 활성화되어 있습니다.</li>
         </ul>
       </details>
@@ -388,7 +388,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
       <select id="s-idle"><option value="1">1분</option><option value="3">3분</option><option value="5">5분 (기본)</option><option value="10">10분</option><option value="15">15분</option></select>
 
       <label class="chk"><input type="checkbox" id="s-hide"><span>다른 탭/창 전환 또는 화면 꺼짐 시 바로 잠그기</span></label>
-      <label class="chk"><input type="checkbox" id="s-cred"><span>격리 iframe 사용 (지원 시) — 사이트가 기존 로그인 쿠키를 받지 않고 임시 저장소에서 동작합니다.</span></label>
+      <label class="chk"><input type="checkbox" id="s-cred"><span>격리 iframe 사용 (지원 시) — 사이트가 기존 로그인 쿠키를 받지 않고 임시 저장소에서 동작합니다. 일부 사이트에서 오류를 유발할 수 있어 기본 꺼짐.</span></label>
       <label class="chk"><input type="checkbox" id="s-pop"><span>iframe 내 팝업 허용 — 사이트가 연 새 창은 Chrome 기록에 남을 수 있습니다.</span></label>
 
       <div class="sect" id="pin-sect">
@@ -496,7 +496,7 @@ const S={
 const $=id=>document.getElementById(id);
 
 /* =========== 저장소 =========== */
-function defaults(){return{v:1,set:{theme:'dark',idle:5,lockHide:false,popups:false,cred:true},pin:null,vault:null,guard:{f:0,u:0}}}
+function defaults(){return{v:1,set:{theme:'dark',idle:5,lockHide:false,popups:false,cred:false},pin:null,vault:null,guard:{f:0,u:0}}}
 
 function storageOk(){try{const k='qs:t';localStorage.setItem(k,'1');localStorage.removeItem(k);return true}catch(e){return false}}
 
@@ -768,11 +768,12 @@ function killFrame(){
 
 function openViewer(url){
   killFrame();S.curUrl=url;
-  const embed=tryEmbed(url);S.loadUrl=embed||url;S.retries=0;
+  const embed=tryEmbed(url);S.loadUrl=embed||('/p/'+url);S.retries=0;
   $('dash').hidden=true;$('viewer').hidden=false;
   $('v-host').textContent=hostOf(url);$('v-host').title=url;
   $('v-help').open=false;
-  if(embed)setMsg('addr-msg','임베드 플레이어로 자동 변환됨 — iframe 내 탐색은 Chrome 기록에 남지 않습니다.','ok');
+  if(embed)setMsg('addr-msg','임베드 플레이어로 자동 변환됨 — Chrome 기록에 남지 않습니다.','ok');
+  else setMsg('addr-msg','프록시 모드로 불러오는 중 — Chrome 기록에 남지 않습니다.','ok');
   renderBlockNotice();
   attempt(S.loadUrl);
 }
@@ -789,7 +790,7 @@ function attempt(url){
   f.setAttribute('referrerpolicy','no-referrer');
   f.setAttribute('allow','fullscreen');
   f.setAttribute('loading','eager');
-  if(S.store.set.cred&&credOk())f.credentialless=true;
+  if(S.store.set.cred&&credOk()&&!url.startsWith('/p/')&&!/\/embed\//i.test(url))f.credentialless=true;
 
   f.addEventListener('load',function onLoad(){
     clearTimeout(S.frameTm);S.frameTm=null;
@@ -825,10 +826,10 @@ function showErrAnalysis(){
 
   const reasons=[];
   if(wasEmbed)reasons.push('임베드 플레이어('+hostOf(S.loadUrl)+')로 변환해 시도했으나 역시 실패했습니다.');
-  reasons.push('사이트가 X-Frame-Options 또는 Content-Security-Policy 헤더로 iframe 삽입을 금지했을 가능성이 높습니다.');
+  else reasons.push('프록시를 통해 시도했으나 실패했습니다.');
   reasons.push('네트워크 연결이 불안정하거나 사이트가 응답하지 않을 수 있습니다.');
   reasons.push('학교 네트워크 필터가 해당 사이트를 차단했을 수 있습니다.');
-  reasons.push('사이트가 HTTPS를 지원하지 않거나 리디렉션 중 문제가 발생했을 수 있습니다.');
+  reasons.push('사이트의 JavaScript가 프록시 환경에서 정상 동작하지 않을 수 있습니다.');
 
   const ul=document.createElement('ul');
   reasons.forEach(r=>{const li=document.createElement('li');li.textContent=r;ul.appendChild(li)});

@@ -1,4 +1,4 @@
-const CACHE='qs-shell-v1';
+const CACHE='qs-shell-v2';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icons/icon.svg','./icons/icon-maskable.svg'];
 
 self.addEventListener('install',e=>{
@@ -15,6 +15,7 @@ self.addEventListener('activate',e=>{
 self.addEventListener('fetch',e=>{
   const u=new URL(e.request.url);
   if(u.origin!==self.location.origin)return;
+  if(u.pathname.startsWith('/p/'))return;
   if(e.request.method!=='GET')return;
   e.respondWith(
     caches.match(e.request).then(r=>r||fetch(e.request).then(nr=>{
