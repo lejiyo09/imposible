@@ -814,12 +814,41 @@ async function openViewer(url,skipHist){
   attempt(S.loadUrl);
 }
 
+function realUrlOf(win){
+  try{const l=win.location;if(l.origin!==location.origin||!l.pathname.startsWith(PX_PREFIX))return null;return xorDec(l.pathname.slice(PX_PREFIX.length))}catch(e){return null}
+}
+
+// 팝업은 sandbox로 막혀 있으므로, 새 창(target=_blank, window.open)으로 여는 링크를 같은 프레임 안에서 연다.
+function hookFrame(win){
+  let doc;try{doc=win.document}catch(e){return}
+  if(!doc||doc.__qsHooked||!realUrlOf(win))return;
+  doc.__qsHooked=true;
+  win.open=function(raw){
+    if(raw){
+      let u;try{u=new URL(String(raw),realUrlOf(win))}catch(e){u=null}
+      if(u&&(u.protocol==='https:'||u.protocol==='http:'))win.location.href=PX_PREFIX+xorEnc(u.href);
+    }
+    return win;
+  };
+  doc.addEventListener('click',ev=>{
+    const a=ev.target&&ev.target.closest?ev.target.closest('a[target],area[target]'):null;
+    if(a&&!/^_self$/i.test(a.target))a.target='_self';
+  },true);
+  doc.addEventListener('submit',ev=>{
+    const fm=ev.target;if(fm&&fm.target&&!/^_self$/i.test(fm.target))fm.target='_self';
+  },true);
+}
+function hookTree(win,depth){
+  hookFrame(win);
+  if(depth>3)return;
+  try{for(let i=0;i<win.frames.length;i++)hookTree(win.frames[i],depth+1)}catch(e){}
+}
+
 // 사이트 안에서 링크로 이동하면 주소창과 뒤로 가기 목록을 따라 갱신한다.
 function syncAddr(){
   const f=$('fwrap').querySelector('iframe');if(!f)return;
-  let l;try{l=f.contentWindow.location}catch(e){return}
-  if(!l||l.origin!==location.origin||!l.pathname.startsWith(PX_PREFIX))return;
-  const u=xorDec(l.pathname.slice(PX_PREFIX.length));
+  hookTree(f.contentWindow,0);
+  const u=realUrlOf(f.contentWindow);
   if(!u||!/^https?:\/\//i.test(u)||u===S.curUrl)return;
   S.curUrl=u;S.hist.length=S.histIdx+1;S.hist.push(u);S.histIdx=S.hist.length-1;updNav();
   if(document.activeElement!==$('addr-in'))$('addr-in').value=u;
@@ -856,6 +885,7 @@ function attempt(url){
     clearTimeout(S.frameTm);S.frameTm=null;
     $('v-load').hidden=true;
   },{once:true});
+  f.addEventListener('load',()=>syncAddr());
 
   f.src=url;
   $('fwrap').appendChild(f);

@@ -17,7 +17,7 @@ self.addEventListener('fetch',e=>{
   if(u.origin!==self.location.origin||e.request.method!=='GET'||!SHELL.includes(u.pathname))return;
   e.respondWith(
     fetch(e.request,{cache:'no-store'}).then(nr=>{
-      if(nr.ok)caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));
+      if(nr.ok){const copy=nr.clone();caches.open(CACHE).then(c=>c.put(e.request,copy))}
       return nr;
     }).catch(()=>caches.match(e.request))
   );
