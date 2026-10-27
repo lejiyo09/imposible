@@ -27,7 +27,7 @@ function safeDest(h) {
 }
 
 app.all('/p/*', async (req, res) => {
-  const raw = req.params[0];
+  const raw = req.originalUrl.slice(3);
   if (!raw) return res.status(400).send('URL required');
 
   let target;
@@ -113,7 +113,9 @@ function rewrite(html, base) {
 
   html = html.replace(/<base\s[^>]*>/gi, '');
 
-  const nav = `<base href="${esc(href)}">\n<script>(function(){document.addEventListener("click",function(e){var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;var h=a.getAttribute("href");if(!h||h[0]==="#"||/^(javascript|mailto|tel|data):/i.test(h))return;try{var u=new URL(h,document.baseURI);if(u.protocol==="https:"||u.protocol==="http:"){e.preventDefault();e.stopPropagation();window.location.href="/p/"+u.href}}catch(x){}},true);document.addEventListener("submit",function(e){var f=e.target;if(!f||f.tagName!=="FORM")return;var a=f.getAttribute("action")||window.location.href;try{var u=new URL(a,document.baseURI);if(u.protocol==="https:"||u.protocol==="http:")f.setAttribute("action","/p/"+u.href)}catch(x){}},true)})();</script>\n`;
+  const nav = `<base href="${esc(href)}">
+<script>(function(){try{var O=window.location.origin,B=document.baseURI;function px(h){if(!h||h[0]==="#")return h;if(/^(javascript|mailto|tel|data|blob):/i.test(h))return h;try{var u=new URL(h,B);if(u.protocol==="https:"||u.protocol==="http:")return O+"/p/"+u.href}catch(x){}return h}document.addEventListener("click",function(e){var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;var h=a.getAttribute("href");if(!h||h[0]==="#"||/^(javascript|mailto|tel|data):/i.test(h))return;e.preventDefault();e.stopPropagation();window.location.href=px(h)},true);document.addEventListener("submit",function(e){var f=e.target;if(!f||f.tagName!=="FORM")return;var a=f.getAttribute("action")||window.location.href;f.setAttribute("action",px(a))},true);var _s=HTMLFormElement.prototype.submit;HTMLFormElement.prototype.submit=function(){var a=this.getAttribute("action")||window.location.href;this.setAttribute("action",px(a));return _s.call(this)};var _o=window.open;window.open=function(u,t,f){if(u)u=px(u);return _o.call(window,u,t,f)};var _f=window.fetch;if(_f)window.fetch=function(i,n){if(typeof i==="string"){try{var u=new URL(i,B);if(u.origin!==O)i=O+"/p/"+u.href}catch(x){}}return _f.call(window,i,n)};var _x=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u,a,s,p){try{var r=new URL(u,B);if(r.origin!==O)u=O+"/p/"+r.href}catch(x){}return _x.call(this,m,u,a,s,p)}}catch(x){}})();<\/script>
+`;
 
   if (/<head[^>]*>/i.test(html)) {
     html = html.replace(/(<head[^>]*>)/i, '$1\n' + nav);
