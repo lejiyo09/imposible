@@ -10,7 +10,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
       res.setHeader('X-Frame-Options', 'DENY');
       res.setHeader('Permissions-Policy', 'interest-cohort=()');
     }
-    if (fp.endsWith('sw.js') || fp.endsWith('.webmanifest')) {
+    if (fp.endsWith('.html') || fp.endsWith('sw.js') || fp.endsWith('.webmanifest')) {
       res.setHeader('Cache-Control', 'no-cache');
     }
   }

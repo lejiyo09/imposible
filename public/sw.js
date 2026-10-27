@@ -1,4 +1,4 @@
-const CACHE='qs-shell-v2';
+const CACHE='qs-shell-v3';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icons/icon.svg','./icons/icon-maskable.svg'];
 
 self.addEventListener('install',e=>{
@@ -18,10 +18,10 @@ self.addEventListener('fetch',e=>{
   if(u.pathname.startsWith('/p/'))return;
   if(e.request.method!=='GET')return;
   e.respondWith(
-    caches.match(e.request).then(r=>r||fetch(e.request).then(nr=>{
+    fetch(e.request,{cache:'no-store'}).then(nr=>{
       if(nr.ok&&SHELL.some(s=>u.pathname.endsWith(s.replace('./','/'))))
         caches.open(CACHE).then(c=>c.put(e.request,nr.clone()));
       return nr;
-    }))
+    }).catch(()=>caches.match(e.request))
   );
 });
