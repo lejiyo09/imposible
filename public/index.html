@@ -331,7 +331,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
           <li>방문한 주소, 검색어, 방문 시간, 페이지 제목을 <strong>자동으로 저장하지 않습니다.</strong></li>
           <li>iframe 안에서 본 사이트는 <strong>Chrome 방문 기록에 나타나지 않습니다.</strong> Chrome 기록에는 QuietSpace 페이지 주소만 남습니다.</li>
           <li>모든 사이트는 QuietSpace 서버(Render)를 거치는 프록시(Ultraviolet)로 iframe 안에서 열립니다. 따라서 방문하는 사이트와의 통신은 이 서버를 지나갑니다. 서버는 주소를 기록하지 않습니다.</li>
-          <li>사이트를 보는 동안 사이트가 남기는 쿠키·저장 데이터는 이 기기에 임시로 생기며, 닫기·잠금·앱 시작 시 지웁니다.</li>
+          <li>사이트가 남기는 저장 데이터는 닫기·잠금·앱 시작 시 지웁니다. 단, "사이트 로그인 유지"(설정, 기본 켜짐)가 켜져 있으면 로그인 쿠키는 남깁니다.</li>
           <li>직접 "저장"한 항목만 이 기기 저장소에 AES-GCM으로 암호화해 보관합니다.</li>
           <li>분석·광고·추적 코드를 쓰지 않습니다.</li>
         </ul>
@@ -371,6 +371,8 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
 
       <label class="chk"><input type="checkbox" id="s-hide"><span>다른 탭/창 전환 또는 화면 꺼짐 시 바로 잠그기</span></label>
       <label class="chk"><input type="checkbox" id="s-pop"><span>iframe 내 팝업 허용 — 사이트가 연 새 창은 Chrome 기록에 남을 수 있습니다.</span></label>
+      <label class="chk"><input type="checkbox" id="s-keep"><span>사이트 로그인 유지 — 닫기·잠금 후에도 네이버·Google 등의 로그인 쿠키를 지우지 않습니다. 쿠키는 이 기기의 QuietSpace 사이트 데이터에만 남고 Chrome 방문 기록과는 무관하지만, 이 기기에서 개발자 도구를 열면 로그인한 사이트 이름이 보입니다.</span></label>
+      <button type="button" id="clr-login" style="margin-top:.2rem">로그인 정보 지금 지우기</button>
 
 
       <div class="sect">
@@ -470,7 +472,7 @@ const S={
 const $=id=>document.getElementById(id);
 
 /* =========== 저장소 =========== */
-function defaults(){return{v:1,set:{theme:'dark',idle:5,lockHide:false,popups:false},pin:{...FIXED_PIN},vault:null,guard:{f:0,u:0}}}
+function defaults(){return{v:1,set:{theme:'dark',idle:5,lockHide:false,popups:false,keepLogin:true},pin:{...FIXED_PIN},vault:null,guard:{f:0,u:0}}}
 
 function storageOk(){try{const k='qs:t';localStorage.setItem(k,'1');localStorage.removeItem(k);return true}catch(e){return false}}
 
@@ -483,7 +485,7 @@ function load(){
     const s=d.set||{};
     b.set.theme=['dark','light','system'].includes(s.theme)?s.theme:'dark';
     b.set.idle=IDLE_OPTS.includes(s.idle)?s.idle:5;
-    b.set.lockHide=s.lockHide===true;b.set.popups=s.popups===true;
+    b.set.lockHide=s.lockHide===true;b.set.popups=s.popups===true;b.set.keepLogin=s.keepLogin!==false;
     // 예전에 다른 PIN으로 암호화된 즐겨찾기는 고정 PIN 키로 열 수 없으므로 버린다.
     const p=d.pin,samePin=p&&p.s===FIXED_PIN.s&&p.v===FIXED_PIN.v&&p.i===FIXED_PIN.i;
     const vt=d.vault;
@@ -703,7 +705,9 @@ function pxReady(){
 }
 
 // 프록시된 사이트가 이 출처에 남긴 데이터(사이트 주소가 키에 포함됨)를 지운다. 앱 데이터(qs*)는 유지.
+// "사이트 로그인 유지"가 켜져 있으면 쿠키 저장소(__op)만 남긴다.
 async function purgeSiteData(){
+  const keepCookies=!!(S.store&&S.store.set.keepLogin);
   for(const name of ['localStorage','sessionStorage']){
     try{const st=window[name],ks=[];for(let i=0;i<st.length;i++){const k=st.key(i);if(k&&!k.startsWith('qs')&&k!=='bare-mux-path')ks.push(k)}ks.forEach(k=>st.removeItem(k))}catch(e){}
   }
@@ -711,7 +715,7 @@ async function purgeSiteData(){
     const dbs=await indexedDB.databases();
     for(const d of dbs){
       if(!d.name)continue;
-      if(d.name==='__op')await clearIdbStores(d.name);
+      if(d.name==='__op'){if(!keepCookies)await clearIdbStores(d.name)}
       else indexedDB.deleteDatabase(d.name);
     }
   }catch(e){}
@@ -721,6 +725,7 @@ async function purgeSiteData(){
 function clearIdbStores(name){
   return new Promise(res=>{
     const r=indexedDB.open(name);
+    r.onupgradeneeded=()=>r.transaction.abort(); // 없는 DB를 빈 채로 만들지 않는다
     r.onerror=r.onblocked=()=>res();
     r.onsuccess=()=>{
       const db=r.result,names=[...db.objectStoreNames];
@@ -1024,7 +1029,7 @@ function applyTheme(){
 function openSet(){
   const s=S.store.set;
   $('s-theme').value=s.theme;$('s-idle').value=String(s.idle);
-  $('s-hide').checked=s.lockHide;$('s-pop').checked=s.popups;
+  $('s-hide').checked=s.lockHide;$('s-pop').checked=s.popups;$('s-keep').checked=s.keepLogin;
   $('s-idle').disabled=S.mode!=='secure';$('s-hide').disabled=S.mode!=='secure';
   $('chk-rpt').hidden=true;$('d-set').showModal();
 }
@@ -1033,7 +1038,7 @@ function saveSet(){
   const s=S.store.set;
   s.theme=['dark','light','system'].includes($('s-theme').value)?$('s-theme').value:'dark';
   const al=parseInt($('s-idle').value,10);s.idle=IDLE_OPTS.includes(al)?al:5;
-  s.lockHide=$('s-hide').checked;s.popups=$('s-pop').checked;
+  s.lockHide=$('s-hide').checked;s.popups=$('s-pop').checked;s.keepLogin=$('s-keep').checked;
   save();applyTheme();renderChips();
 }
 
@@ -1141,7 +1146,11 @@ function bind(){
   $('add-bm').addEventListener('click',()=>openItemDlg('bookmark'));
   $('f-item').addEventListener('submit',saveItem);
 
-  ['s-theme','s-idle','s-hide','s-pop'].forEach(id=>$(id).addEventListener('change',saveSet));
+  ['s-theme','s-idle','s-hide','s-pop','s-keep'].forEach(id=>$(id).addEventListener('change',saveSet));
+  $('clr-login').addEventListener('click',async()=>{
+    if(S.curUrl)closeViewer();
+    await clearIdbStores('__op');toast('로그인 정보를 지웠습니다.');
+  });
   $('chk-btn').addEventListener('click',storageCheck);
   $('reset-btn').addEventListener('click',resetAll);
 
