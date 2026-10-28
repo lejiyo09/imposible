@@ -37,7 +37,7 @@ app.use('/epoxy/', express.static(epoxyPath, { setHeaders: noCache }));
 
 // 서비스 워커가 아직 활성화되지 않았을 때만 서버까지 도달한다.
 app.get('/service/*', (req, res) => {
-  res.status(503).type('html').send('<!DOCTYPE html><meta charset="utf-8"><body style="font-family:system-ui,sans-serif;padding:2rem;color:#333"><h2>프록시 준비 중</h2><p>QuietSpace의 새로고침 버튼을 눌러 다시 시도하세요.</p></body>');
+  res.status(503).type('html').send('<!DOCTYPE html><meta charset="utf-8"><body style="font-family:system-ui,sans-serif;padding:2rem;color:#333"><h2>프록시 준비 중</h2><p>Geo-Zebra의 새로고침 버튼을 눌러 다시 시도하세요.</p></body>');
 });
 
 // ── 서버 IP 확인 엔드포인트 (DNS 차단 대비 IP 캐싱용) ──
@@ -50,7 +50,7 @@ app.get('/api/server-info', (req, res) => {
 });
 
 const server = app.listen(process.env.PORT || 3000, () => {
-  console.log('QuietSpace on port ' + server.address().port);
+  console.log('Geo-Zebra on port ' + server.address().port);
 });
 
 // ── WebSocket 업그레이드 라우팅 ──

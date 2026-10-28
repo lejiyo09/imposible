@@ -1,5 +1,5 @@
 /**
- * QuietSpace Agent — 서버사이드 웹페이지 프록시 에이전트
+ * Geo-Zebra Agent — 서버사이드 웹페이지 프록시 에이전트
  *
  * 클라이언트와 단일 WebSocket으로 연결.
  * 클라이언트 요청 시 서버에서 페이지를 fetch → HTML/CSS/이미지 인라인화 → 전송.

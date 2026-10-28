@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: quietspace
+    name: geo-zebra
     runtime: node
     buildCommand: npm install
     startCommand: node server.js
