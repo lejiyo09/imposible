@@ -10,7 +10,9 @@
     "@mercuryworkshop/epoxy-transport": "2.1.29",
     "@mercuryworkshop/wisp-js": "0.5.1",
     "@titaniumnetwork-dev/ultraviolet": "3.2.10",
-    "express": "^4.21.0"
+    "express": "^4.21.0",
+    "jsdom": "^24.1.0",
+    "ws": "^8.17.0"
   },
   "engines": {
     "node": ">=18"

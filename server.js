@@ -1,9 +1,11 @@
 const express = require('express');
 const path = require('path');
+const { WebSocketServer } = require('ws');
 const { uvPath } = require('@titaniumnetwork-dev/ultraviolet');
 const { baremuxPath } = require('@mercuryworkshop/bare-mux/node');
 const { epoxyPath } = require('@mercuryworkshop/epoxy-transport');
 const { server: wisp, logging } = require('@mercuryworkshop/wisp-js/server');
+const { handleAgentConnection } = require('./agent');
 
 logging.set_level(logging.WARN);
 wisp.options.allow_private_ips = false;
@@ -38,11 +40,34 @@ app.get('/service/*', (req, res) => {
   res.status(503).type('html').send('<!DOCTYPE html><meta charset="utf-8"><body style="font-family:system-ui,sans-serif;padding:2rem;color:#333"><h2>프록시 준비 중</h2><p>QuietSpace의 새로고침 버튼을 눌러 다시 시도하세요.</p></body>');
 });
 
+// ── 서버 IP 확인 엔드포인트 (DNS 차단 대비 IP 캐싱용) ──
+app.get('/api/server-info', (req, res) => {
+  res.json({
+    ts: Date.now(),
+    // 클라이언트가 이 응답의 소스 IP를 캐시하면 DNS 없이 재연결 가능
+    hint: 'Cache the IP from this connection for DNS-free reconnection',
+  });
+});
+
 const server = app.listen(process.env.PORT || 3000, () => {
   console.log('QuietSpace on port ' + server.address().port);
 });
 
+// ── WebSocket 업그레이드 라우팅 ──
+// /wisp/  → 기존 Wisp 프록시 (YouTube, 치지직 등 스트리밍 가능)
+// /agent/ → 에이전트 모드 (서버사이드 렌더링, 백업)
+const agentWss = new WebSocketServer({ noServer: true });
+
+agentWss.on('connection', handleAgentConnection);
+
 server.on('upgrade', (req, socket, head) => {
-  if (req.url.startsWith('/wisp/')) wisp.routeRequest(req, socket, head);
-  else socket.destroy();
+  if (req.url.startsWith('/wisp/')) {
+    wisp.routeRequest(req, socket, head);
+  } else if (req.url.startsWith('/agent/')) {
+    agentWss.handleUpgrade(req, socket, head, (ws) => {
+      agentWss.emit('connection', ws, req);
+    });
+  } else {
+    socket.destroy();
+  }
 });

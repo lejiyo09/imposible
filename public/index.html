@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self'; frame-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; manifest-src 'self'; worker-src 'self'; connect-src 'self' wss: ws:; frame-src 'self' blob:; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#0f1219">
@@ -273,6 +273,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
   <header class="topbar">
     <div class="brand"><svg class="logo" aria-hidden="true"><use href="#i-logo"/></svg><b>QuietSpace</b></div>
     <div class="acts">
+      <span id="conn-status" class="chip chip-ok" title="연결 상태" style="font-size:.72rem;cursor:help">● 연결됨</span>
       <button type="button" id="btn-home" title="홈"><svg class="ic" aria-hidden="true"><use href="#i-home"/></svg><span class="bl">홈</span></button>
       <button type="button" id="btn-lock" title="잠금 (Alt+L)"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><span class="bl">잠금</span></button>
       <button type="button" id="btn-set" title="설정"><svg class="ic" aria-hidden="true"><use href="#i-gear"/></svg><span class="bl">설정</span></button>
@@ -736,6 +737,275 @@ function clearIdbStores(name){
   });
 }
 
+/* =========== 에이전트 모드 (WebSocket 기반 서버사이드 렌더링) =========== */
+const Agent = {
+  ws: null,
+  connected: false,
+  serverIp: null,       // DNS 차단 시 재연결용 캐시된 IP
+  pending: new Map(),   // id → {resolve, reject}
+  hbTimer: null,
+  reconnTimer: null,
+  reconnDelay: 1000,
+  maxReconnDelay: 30000,
+  mode: 'proxy',        // 'proxy' | 'agent' — 현재 활성 모드
+
+  // 에이전트 WebSocket 연결
+  connect() {
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
+
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // DNS 차단 시 캐시된 IP로 연결 시도
+    const host = this.serverIp || location.host;
+    const url = proto + '//' + host + '/agent/';
+
+    try {
+      this.ws = new WebSocket(url);
+    } catch (e) {
+      this.scheduleReconnect();
+      return;
+    }
+
+    this.ws.onopen = () => {
+      this.connected = true;
+      this.reconnDelay = 1000;
+      this.updateStatus('connected');
+      this.startHeartbeat();
+      // 서버 IP 캐싱 요청 (DNS 차단 대비)
+      this.send({ type: 'resolve', hostname: location.hostname });
+    };
+
+    this.ws.onmessage = (ev) => {
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch { return; }
+
+      if (msg.type === 'pong') return;
+
+      if (msg.type === 'connected') {
+        console.log('[Agent] Connected v' + msg.version);
+        return;
+      }
+
+      if (msg.type === 'resolved' && msg.ip) {
+        this.serverIp = msg.ip;
+        // localStorage에 캐시 (DNS 차단 후에도 사용 가능)
+        try { localStorage.setItem('qs:agent-ip', msg.ip); } catch {}
+        console.log('[Agent] Server IP cached:', msg.ip);
+        return;
+      }
+
+      // navigate 응답 처리
+      const id = msg.id;
+      if (id && this.pending.has(id)) {
+        const { resolve, reject } = this.pending.get(id);
+        this.pending.delete(id);
+        if (msg.type === 'page') resolve(msg);
+        else if (msg.type === 'error') reject(new Error(msg.message));
+        // 'loading'은 무시 (진행 표시용)
+      }
+    };
+
+    this.ws.onclose = () => {
+      this.connected = false;
+      this.stopHeartbeat();
+      this.updateStatus('disconnected');
+      this.scheduleReconnect();
+    };
+
+    this.ws.onerror = () => {
+      // onclose가 이어서 호출됨
+    };
+  },
+
+  send(obj) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(obj));
+    }
+  },
+
+  startHeartbeat() {
+    this.stopHeartbeat();
+    this.hbTimer = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.send({ type: 'ping' });
+      }
+    }, 20000); // 20초마다 핑
+  },
+
+  stopHeartbeat() {
+    if (this.hbTimer) { clearInterval(this.hbTimer); this.hbTimer = null; }
+  },
+
+  scheduleReconnect() {
+    if (this.reconnTimer) return;
+    this.reconnTimer = setTimeout(() => {
+      this.reconnTimer = null;
+      // 캐시된 IP 복원
+      if (!this.serverIp) {
+        try { this.serverIp = localStorage.getItem('qs:agent-ip'); } catch {}
+      }
+      this.connect();
+    }, this.reconnDelay);
+    this.reconnDelay = Math.min(this.reconnDelay * 1.5, this.maxReconnDelay);
+  },
+
+  // 에이전트를 통해 페이지 가져오기
+  navigate(url) {
+    return new Promise((resolve, reject) => {
+      if (!this.connected) {
+        reject(new Error('에이전트에 연결되어 있지 않습니다.'));
+        return;
+      }
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      this.pending.set(id, { resolve, reject });
+      this.send({ type: 'navigate', id, url });
+      // 30초 타임아웃
+      setTimeout(() => {
+        if (this.pending.has(id)) {
+          this.pending.delete(id);
+          reject(new Error('에이전트 응답 시간 초과 (30초)'));
+        }
+      }, 30000);
+    });
+  },
+
+  updateStatus(state) {
+    const el = $('conn-status');
+    if (!el) return;
+    if (state === 'connected') {
+      el.className = 'chip chip-ok';
+      el.textContent = this.mode === 'agent' ? '● 에이전트' : '● 연결됨';
+      el.title = '에이전트 WebSocket 연결됨' + (this.serverIp ? ' (IP: ' + this.serverIp + ')' : '');
+    } else {
+      el.className = 'chip chip-w';
+      el.textContent = '○ 재연결 중';
+      el.title = '에이전트 연결 끊김 — 자동 재연결 시도 중';
+    }
+  },
+
+  destroy() {
+    this.stopHeartbeat();
+    if (this.reconnTimer) { clearTimeout(this.reconnTimer); this.reconnTimer = null; }
+    if (this.ws) { this.ws.close(); this.ws = null; }
+    this.connected = false;
+    this.pending.clear();
+  }
+};
+
+// 에이전트 모드로 페이지 표시 (srcdoc 또는 blob URL 사용)
+async function openViewerAgent(url, skipHist) {
+  killFrame();
+  S.curUrl = url;
+  S.loadUrl = null;
+  Agent.mode = 'agent';
+  Agent.updateStatus('connected');
+
+  if (!skipHist) {
+    S.hist.length = S.histIdx + 1;
+    S.hist.push(url);
+    S.histIdx = S.hist.length - 1;
+  }
+  updNav();
+
+  $('dash').hidden = true;
+  $('viewer').hidden = false;
+  $('addr-form').classList.add('vw');
+  $('addr-in').value = url;
+  setMsg('addr-msg', '');
+  resetLoader('에이전트가 페이지를 가져오는 중…');
+
+  try {
+    const result = await Agent.navigate(url);
+    if (S.curUrl !== url) return; // 사용자가 다른 페이지로 이동함
+
+    // blob URL로 iframe에 표시
+    const blob = new Blob([result.html], { type: 'text/html;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+
+    const old = $('fwrap').querySelector('iframe');
+    if (old) old.remove();
+
+    const f = document.createElement('iframe');
+    f.title = (result.title || hostOf(url)) + ' (에이전트 모드)';
+    f.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+    f.setAttribute('referrerpolicy', 'no-referrer');
+
+    f.addEventListener('load', () => {
+      $('v-load').hidden = true;
+      URL.revokeObjectURL(blobUrl);
+      // 에이전트 렌더링된 페이지 내 링크 클릭을 가로채기
+      try {
+        const doc = f.contentDocument;
+        if (doc) {
+          doc.addEventListener('click', (ev) => {
+            const a = ev.target.closest('a[href]');
+            if (!a) return;
+            const href = a.getAttribute('href');
+            if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('data:')) return;
+            ev.preventDefault();
+            // 절대 URL로 변환
+            let abs;
+            try { abs = new URL(href, url).href; } catch { return; }
+            if (abs.startsWith('http://') || abs.startsWith('https://')) {
+              navTo(abs);
+            }
+          }, true);
+        }
+      } catch (e) { /* cross-origin */ }
+    }, { once: true });
+
+    f.src = blobUrl;
+    $('fwrap').appendChild(f);
+
+    // 주소바 업데이트
+    if (result.url && result.url !== url) {
+      S.curUrl = result.url;
+      $('addr-in').value = result.url;
+    }
+
+  } catch (err) {
+    if (S.curUrl !== url) return;
+    showAgentError(url, err.message);
+  }
+}
+
+function showAgentError(url, message) {
+  const wrap = $('v-load');
+  while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
+  wrap.hidden = false;
+
+  const box = document.createElement('div');
+  box.id = 'v-err';
+
+  const h = document.createElement('h3');
+  h.textContent = '에이전트 모드 로드 실패';
+  box.appendChild(h);
+
+  const p = document.createElement('p');
+  p.textContent = message || '알 수 없는 오류';
+  p.style.marginBottom = '.5rem';
+  box.appendChild(p);
+
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.style.gap = '.4rem';
+
+  const retryAgent = document.createElement('button');
+  retryAgent.type = 'button';
+  retryAgent.textContent = '에이전트로 재시도';
+  retryAgent.addEventListener('click', () => openViewerAgent(url));
+  row.appendChild(retryAgent);
+
+  const retryProxy = document.createElement('button');
+  retryProxy.type = 'button';
+  retryProxy.className = 'btn-p';
+  retryProxy.textContent = '프록시로 시도';
+  retryProxy.addEventListener('click', () => { Agent.mode = 'proxy'; openViewer(url); });
+  row.appendChild(retryProxy);
+
+  box.appendChild(row);
+  wrap.appendChild(box);
+}
+
 /* =========== 뷰어 (iframe + 재시도) =========== */
 function sbx(){
   const t=['allow-scripts','allow-same-origin','allow-forms','allow-downloads','allow-modals','allow-presentation'];
@@ -893,13 +1163,21 @@ function showErrAnalysis(cause){
 
   const row=document.createElement('div');row.className='row';row.style.gap='.4rem';row.style.marginTop='.5rem';
 
+  // 에이전트 모드 전환 버튼 (우선 표시)
+  if(Agent.connected){
+    const agentBtn=document.createElement('button');agentBtn.type='button';agentBtn.className='btn-p';agentBtn.textContent='⚡ 에이전트 모드로 보기';
+    agentBtn.title='서버에서 페이지를 렌더링해서 보여줍니다. 영상은 재생 불가.';
+    agentBtn.addEventListener('click',()=>{if(S.curUrl)openViewerAgent(S.curUrl)});
+    row.appendChild(agentBtn);
+  }
+
   const ntb=document.createElement('button');ntb.type='button';ntb.textContent='새 탭에서 열기';
   ntb.addEventListener('click',openNewTab);row.appendChild(ntb);
 
   const cp=document.createElement('button');cp.type='button';cp.textContent='주소 복사';
   cp.addEventListener('click',copyUrl);row.appendChild(cp);
 
-  const retry=document.createElement('button');retry.type='button';retry.className='btn-p';retry.textContent='다시 시도';
+  const retry=document.createElement('button');retry.type='button';retry.className='btn-p';retry.textContent='프록시로 재시도';
   retry.addEventListener('click',()=>{if(S.curUrl)openViewer(S.curUrl)});row.appendChild(retry);
 
   box.appendChild(row);
@@ -917,7 +1195,10 @@ function navTo(raw){
   const r=normUrl(raw);
   if(r.err){setMsg('addr-msg',r.err,'e');$('addr-in').focus();return}
   setMsg('addr-msg',r.note||'',r.note?'w':'');
-  $('addr-in').value=r.url;$('addr-in').blur();openViewer(r.url);
+  $('addr-in').value=r.url;$('addr-in').blur();
+  // 에이전트 모드가 활성화되어 있으면 에이전트로, 아니면 프록시로
+  if(Agent.mode==='agent'&&Agent.connected)openViewerAgent(r.url);
+  else openViewer(r.url);
 }
 
 async function openNewTab(){
@@ -1199,6 +1480,8 @@ function init(){
   if(!sOk)S.reasons.push('브라우저 저장소 사용 불가.');
   S.mode=cOk&&sOk?'secure':'limited';
   applyTheme();bind();regSW();purgeSiteData();
+  // 에이전트 WebSocket 즉시 연결 (DNS 차단 전에 연결 수립)
+  Agent.connect();
   // PIN을 확인할 수 없는 환경(HTTPS 아님 등)에서는 열지 않는다.
   showLock(cOk?'unlock':'unavail');
 }
