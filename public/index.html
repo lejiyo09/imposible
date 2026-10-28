@@ -796,6 +796,13 @@ function hookFrame(win){
   doc.addEventListener('submit',ev=>{
     const fm=ev.target;if(fm&&fm.target&&!/^_self$/i.test(fm.target))fm.target='_self';
   },true);
+  // form.submit()은 submit 이벤트가 없으므로 직접 감싼다(네이버 로그인 폼이 target=_top으로 이렇게 제출함).
+  const FP=win.HTMLFormElement&&win.HTMLFormElement.prototype;
+  if(FP&&!FP.__qsSubmit){
+    const orig=FP.submit;
+    FP.submit=function(){if(this.target&&!/^_self$/i.test(this.target))this.target='_self';return orig.call(this)};
+    FP.__qsSubmit=true;
+  }
 }
 function hookTree(win,depth){
   hookFrame(win);
