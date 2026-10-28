@@ -241,16 +241,6 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
       <h1 id="lk-t">잠금 해제</h1>
       <p class="lead" id="lk-lead">PIN을 입력하세요.</p>
 
-      <form id="f-setup" autocomplete="off" hidden novalidate>
-        <label for="s-pin">새 PIN (숫자 4~12자리)</label>
-        <input id="s-pin" class="pin-in" type="password" inputmode="numeric" autocomplete="off" maxlength="12" spellcheck="false">
-        <label for="s-pin2">PIN 확인</label>
-        <input id="s-pin2" class="pin-in" type="password" inputmode="numeric" autocomplete="off" maxlength="12" spellcheck="false">
-        <p class="hint">PIN은 평문 저장되지 않습니다. 임의 salt + PBKDF2 해시 검증값만 저장됩니다.</p>
-        <p class="msg" id="s-msg" role="alert" aria-live="assertive"></p>
-        <div class="lk-acts"><button type="submit" class="btn-p" id="s-go">PIN 설정하고 시작</button></div>
-      </form>
-
       <form id="f-unlock" autocomplete="off" hidden novalidate>
         <label for="u-pin" class="sr">PIN</label>
         <input id="u-pin" class="pin-in" type="password" inputmode="numeric" autocomplete="off" maxlength="12" spellcheck="false" aria-describedby="u-msg">
@@ -263,7 +253,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
       </div>
 
       <div class="lk-foot">
-        <button type="button" class="btn-g" id="forgot-btn">PIN을 잊었나요? 저장 데이터 초기화</button>
+        <button type="button" class="btn-g" id="forgot-btn">이 기기의 즐겨찾기·설정 초기화</button>
         <details>
           <summary>이 잠금이 보호하는 범위</summary>
           <ul style="margin:.3rem 0;padding-left:1.1rem;font-size:.88rem">
@@ -382,19 +372,6 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
       <label class="chk"><input type="checkbox" id="s-hide"><span>다른 탭/창 전환 또는 화면 꺼짐 시 바로 잠그기</span></label>
       <label class="chk"><input type="checkbox" id="s-pop"><span>iframe 내 팝업 허용 — 사이트가 연 새 창은 Chrome 기록에 남을 수 있습니다.</span></label>
 
-      <div class="sect" id="pin-sect">
-        <h3>PIN 변경</h3>
-        <form id="f-pc" autocomplete="off" novalidate>
-          <label for="pc-cur">현재 PIN</label>
-          <input id="pc-cur" type="password" inputmode="numeric" autocomplete="off" maxlength="12">
-          <label for="pc-new">새 PIN (숫자 4~12자리)</label>
-          <input id="pc-new" type="password" inputmode="numeric" autocomplete="off" maxlength="12">
-          <label for="pc-new2">새 PIN 확인</label>
-          <input id="pc-new2" type="password" inputmode="numeric" autocomplete="off" maxlength="12">
-          <p class="msg" id="pc-msg" role="alert" aria-live="assertive"></p>
-          <button type="submit" id="pc-go" style="margin-top:.4rem">PIN 변경</button>
-        </form>
-      </div>
 
       <div class="sect">
         <h3>저장 데이터 점검</h3>
@@ -407,7 +384,8 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
         <h3>보안상 한계</h3>
         <ul style="font-size:.88rem;padding-left:1.1rem">
           <li>PIN 잠금은 화면 가림용 가벼운 보호이며 계정 인증이 아닙니다.</li>
-          <li>즐겨찾기는 AES-GCM으로 암호화되지만, 짧은 숫자 PIN은 경우의 수가 적어 저장소를 복사한 사람이 오프라인 추측 가능합니다.</li>
+          <li>PIN은 모든 기기에서 같은 값으로 고정되어 있고, 그 검증값(PBKDF2 해시)이 앱 코드에 들어 있습니다. 6자리 숫자는 경우의 수가 적어, 코드를 본 사람은 컴퓨터로 모든 숫자를 대입해 PIN을 알아낼 수 있습니다.</li>
+          <li>잠금은 이 화면에서만 동작합니다. 서버 주소를 아는 사람이 개발자 도구로 화면을 우회하면 프록시는 PIN 없이 쓸 수 있습니다.</li>
           <li>코드 변경, 개발자 도구, 확장 프로그램, 사이트 데이터 삭제로 우회·초기화 가능합니다.</li>
           <li>프록시로 연 사이트의 스크립트는 이 앱과 같은 출처에서 실행됩니다. 악의적인 사이트라면 이 기기에 저장된 암호화된 즐겨찾기와 PIN 검증값을 읽어 갈 수 있으니, 믿을 수 있는 사이트만 여세요.</li>
           <li>Chrome 기록, Google 계정 활동, 학교 관리 기록에는 영향을 주지 않습니다.</li>
@@ -416,7 +394,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
 
       <div class="sect">
         <h3>초기화</h3>
-        <p class="hint">PIN, 바로가기·즐겨찾기, 앱 설정, 오프라인 캐시를 이 기기에서 삭제합니다. 되돌릴 수 없습니다.</p>
+        <p class="hint">바로가기·즐겨찾기, 앱 설정, 오프라인 캐시를 이 기기에서 삭제합니다. 되돌릴 수 없습니다. PIN은 고정이라 바뀌지 않습니다.</p>
         <button type="button" class="btn-d" id="reset-btn" style="margin-top:.4rem">모든 저장 데이터 초기화</button>
       </div>
     </div>
@@ -471,7 +449,9 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
 'use strict';
 
 /* =========== 상수 =========== */
-const STORE='qs:v1',ITER=310000,PIN_RE=/^\d{4,12}$/;
+const STORE='qs:v1',PIN_RE=/^\d{4,12}$/;
+// 고정 PIN의 PBKDF2-SHA256 검증값(임의 salt). PIN 자체는 코드에 없다.
+const FIXED_PIN={s:'fdPFKk+UvweA2maXJwXV9A==',i:310000,v:'0UA3nQjnDWFVUDQm+JC4Gzr0J3wtki01WzAW+CxiVxI='};
 const MAX_ATT=5,LOCK_BASE=30000,LOCK_MAX=900000;
 const IDLE_CK=10000,FRAME_TO=25000,MAX_RETRY=5,RETRY_DELAY=1500;
 const MAX_ITEMS=100,MAX_URL=2048;
@@ -490,7 +470,7 @@ const S={
 const $=id=>document.getElementById(id);
 
 /* =========== 저장소 =========== */
-function defaults(){return{v:1,set:{theme:'dark',idle:5,lockHide:false,popups:false},pin:null,vault:null,guard:{f:0,u:0}}}
+function defaults(){return{v:1,set:{theme:'dark',idle:5,lockHide:false,popups:false},pin:{...FIXED_PIN},vault:null,guard:{f:0,u:0}}}
 
 function storageOk(){try{const k='qs:t';localStorage.setItem(k,'1');localStorage.removeItem(k);return true}catch(e){return false}}
 
@@ -504,10 +484,10 @@ function load(){
     b.set.theme=['dark','light','system'].includes(s.theme)?s.theme:'dark';
     b.set.idle=IDLE_OPTS.includes(s.idle)?s.idle:5;
     b.set.lockHide=s.lockHide===true;b.set.popups=s.popups===true;
-    const p=d.pin;
-    if(p&&typeof p.s==='string'&&typeof p.v==='string'&&Number.isInteger(p.i)&&p.i>=100000)b.pin={s:p.s,i:p.i,v:p.v};
+    // 예전에 다른 PIN으로 암호화된 즐겨찾기는 고정 PIN 키로 열 수 없으므로 버린다.
+    const p=d.pin,samePin=p&&p.s===FIXED_PIN.s&&p.v===FIXED_PIN.v&&p.i===FIXED_PIN.i;
     const vt=d.vault;
-    if(vt&&typeof vt.iv==='string'&&typeof vt.ct==='string')b.vault={iv:vt.iv,ct:vt.ct};
+    if(samePin&&vt&&typeof vt.iv==='string'&&typeof vt.ct==='string')b.vault={iv:vt.iv,ct:vt.ct};
     const g=d.guard||{};
     b.guard.f=Number.isInteger(g.f)&&g.f>=0?g.f:0;
     b.guard.u=typeof g.u==='number'&&g.u>0?g.u:0;
@@ -559,18 +539,6 @@ function uid(){
 }
 
 /* =========== PIN =========== */
-function pinErr(p,p2){
-  if(!PIN_RE.test(p))return'PIN은 숫자 4~12자리여야 합니다.';
-  if(/^(\d)\1+$/.test(p))return'같은 숫자만 반복한 PIN은 사용할 수 없습니다.';
-  if('0123456789012'.includes(p)||'9876543210987'.includes(p))return'연속된 숫자 PIN은 사용할 수 없습니다.';
-  if(p!==p2)return'두 PIN이 다릅니다.';return'';
-}
-
-async function mkPin(pin){
-  const salt=rnd(16),{ver,key}=await derive(pin,salt,ITER);
-  return{rec:{s:b64e(salt),i:ITER,v:b64e(ver)},key};
-}
-
 async function ckPin(pin){
   const r=S.store.pin;if(!r||!PIN_RE.test(pin))return null;
   const{ver,key}=await derive(pin,b64d(r.s),r.i);
@@ -592,12 +560,9 @@ function fmtWait(ms){const s=Math.ceil(ms/1000);if(s<60)return s+'초';const m=M
 /* =========== 잠금 화면 =========== */
 function showLock(mode){
   $('app').hidden=true;$('lock').hidden=false;
-  $('f-setup').hidden=mode!=='setup';$('f-unlock').hidden=mode!=='unlock';$('unavail').hidden=mode!=='unavail';
-  $('forgot-btn').hidden=mode==='setup';
-  if(mode==='setup'){
-    $('lk-t').textContent='처음 사용 설정';$('lk-lead').textContent='PIN을 만들어 주세요.';
-    clr(['s-pin','s-pin2']);setMsg('s-msg','');$('s-pin').focus();
-  }else if(mode==='unlock'){
+  $('f-unlock').hidden=mode!=='unlock';$('unavail').hidden=mode!=='unavail';
+  $('forgot-btn').hidden=S.mode!=='secure';
+  if(mode==='unlock'){
     $('lk-t').textContent='잠금 해제';$('lk-lead').textContent='PIN을 입력하세요.';
     clr(['u-pin']);setMsg('u-msg','');lockUi();if(!$('u-pin').disabled)$('u-pin').focus();
   }else{$('lk-t').textContent='잠금 해제 불가';$('lk-lead').textContent=''}
@@ -613,20 +578,6 @@ function lockUi(){
     return bl;
   };
   if(tick())S.lockTm=setInterval(tick,1000);
-}
-
-async function onSetup(ev){
-  ev.preventDefault();if(S.busy)return;
-  const p=$('s-pin').value,p2=$('s-pin2').value,e=pinErr(p,p2);
-  if(e){setMsg('s-msg',e,'e');return}
-  busy(true,'s-go','설정 중…');
-  try{
-    const{rec,key}=await mkPin(p);
-    S.store.pin=rec;S.store.guard={f:0,u:0};S.key=key;S.items=[];
-    S.store.vault=await enc(key,{items:[]});
-    if(!save())throw 0;clr(['s-pin','s-pin2']);enter();
-  }catch(e){S.store.pin=null;S.key=null;setMsg('s-msg','설정 실패. 새로고침 후 다시 시도하세요.','e')}
-  finally{busy(false,'s-go','PIN 설정하고 시작')}
 }
 
 async function onUnlock(ev){
@@ -649,17 +600,14 @@ function busy(on,id,txt){S.busy=on;$(id).disabled=on;$(id).textContent=txt}
 function enter(){
   S.unlocked=true;clearInterval(S.lockTm);S.lockTm=null;
   $('lock').hidden=true;$('app').hidden=false;
-  $('btn-lock').disabled=S.mode!=='secure';
-  $('pin-sect').hidden=S.mode!=='secure';
   renderBanner();renderChips();renderItems();showDash();
   markAct();startIdle();$('addr-in').focus();
 }
 
 function lock(){
-  if(S.mode!=='secure'||!S.store.pin)return;
   document.querySelectorAll('dialog[open]').forEach(d=>d.close());
   closeViewer();
-  clr(['it-name','it-url','pc-cur','pc-new','pc-new2']);
+  clr(['it-name','it-url']);
   $('chk-rpt').hidden=true;$('chk-rpt').textContent='';
   S.items=[];S.key=null;S.unlocked=false;
   while($('sc-tiles').firstChild)$('sc-tiles').removeChild($('sc-tiles').firstChild);
@@ -670,7 +618,7 @@ function lock(){
 /* ---- 자동 잠금 ---- */
 function markAct(){S.lastAct=Date.now()}
 function ckIdle(){if(!S.unlocked)return;if(Date.now()-S.lastAct>=S.store.set.idle*60000)lock()}
-function startIdle(){stopIdle();if(S.mode!=='secure')return;S.idleTm=setInterval(ckIdle,IDLE_CK)}
+function startIdle(){stopIdle();S.idleTm=setInterval(ckIdle,IDLE_CK)}
 function stopIdle(){clearInterval(S.idleTm);S.idleTm=null}
 
 /* =========== URL 검증 =========== */
@@ -756,8 +704,8 @@ function pxReady(){
 
 // 프록시된 사이트가 이 출처에 남긴 데이터(사이트 주소가 키에 포함됨)를 지운다. 앱 데이터(qs*)는 유지.
 async function purgeSiteData(){
-  for(const st of [localStorage,sessionStorage]){
-    try{const ks=[];for(let i=0;i<st.length;i++){const k=st.key(i);if(k&&!k.startsWith('qs')&&k!=='bare-mux-path')ks.push(k)}ks.forEach(k=>st.removeItem(k))}catch(e){}
+  for(const name of ['localStorage','sessionStorage']){
+    try{const st=window[name],ks=[];for(let i=0;i<st.length;i++){const k=st.key(i);if(k&&!k.startsWith('qs')&&k!=='bare-mux-path')ks.push(k)}ks.forEach(k=>st.removeItem(k))}catch(e){}
   }
   try{
     const dbs=await indexedDB.databases();
@@ -1078,7 +1026,6 @@ function openSet(){
   $('s-theme').value=s.theme;$('s-idle').value=String(s.idle);
   $('s-hide').checked=s.lockHide;$('s-pop').checked=s.popups;
   $('s-idle').disabled=S.mode!=='secure';$('s-hide').disabled=S.mode!=='secure';
-  clr(['pc-cur','pc-new','pc-new2']);setMsg('pc-msg','');
   $('chk-rpt').hidden=true;$('d-set').showModal();
 }
 
@@ -1088,22 +1035,6 @@ function saveSet(){
   const al=parseInt($('s-idle').value,10);s.idle=IDLE_OPTS.includes(al)?al:5;
   s.lockHide=$('s-hide').checked;s.popups=$('s-pop').checked;
   save();applyTheme();renderChips();
-}
-
-async function onPinChange(ev){
-  ev.preventDefault();if(S.busy||S.mode!=='secure')return;
-  if(lockMs()>0){setMsg('pc-msg','시도 제한 중. '+fmtWait(lockMs())+' 후 다시 시도하세요.','w');return}
-  const c=$('pc-cur').value,n=$('pc-new').value,n2=$('pc-new2').value;
-  const e=pinErr(n,n2);if(e){setMsg('pc-msg',e,'e');return}
-  busy(true,'pc-go','변경 중…');
-  try{
-    const key=await ckPin(c);
-    if(!key){regFail();setMsg('pc-msg','현재 PIN이 올바르지 않습니다.','e');return}
-    const{rec,key:nk}=await mkPin(n);
-    S.store.pin=rec;S.store.vault=await enc(nk,{items:S.items});S.store.guard={f:0,u:0};
-    if(!save())throw 0;S.key=nk;clr(['pc-cur','pc-new','pc-new2']);setMsg('pc-msg','PIN을 변경했습니다.','ok');
-  }catch(e){setMsg('pc-msg','변경 실패.','e')}
-  finally{clr(['pc-cur','pc-new','pc-new2']);busy(false,'pc-go','PIN 변경')}
 }
 
 async function storageCheck(){
@@ -1129,7 +1060,7 @@ async function storageCheck(){
 
 async function resetAll(){
   const ok=await confirm({title:'모든 데이터 초기화',
-    msg:'PIN, 바로가기·즐겨찾기, 앱 설정, 오프라인 캐시가 이 기기에서 삭제됩니다. 되돌릴 수 없습니다.\n\n(Chrome 방문 기록이나 Google 계정 활동은 삭제되지 않습니다.)',
+    msg:'바로가기·즐겨찾기, 앱 설정, 오프라인 캐시가 이 기기에서 삭제됩니다. 되돌릴 수 없습니다.\n\nPIN은 고정이라 초기화 후에도 같은 PIN으로만 열 수 있습니다.\n(Chrome 방문 기록이나 Google 계정 활동은 삭제되지 않습니다.)',
     ok:'초기화',req:'초기화'});
   if(!ok)return;
   killFrame();S.curUrl=null;S.loadUrl=null;S.items=[];S.key=null;
@@ -1141,8 +1072,8 @@ function renderChips(){
   const b=$('st-chips');while(b.firstChild)b.removeChild(b.firstChild);
   const add=(t,k)=>{const c=document.createElement('span');c.className='chip'+(k?' chip-'+k:'');c.textContent=t;b.appendChild(c)};
   add(hasCrypto()?'Web Crypto 사용 가능':'Web Crypto 사용 불가',hasCrypto()?'ok':'w');
-  add(S.mode==='secure'?'PIN 잠금 켜짐':'PIN 잠금 불가',S.mode==='secure'?'ok':'w');
-  if(S.mode==='secure')add('자동 잠금 '+S.store.set.idle+'분','ok');
+  add('PIN 잠금 켜짐','ok');
+  add('자동 잠금 '+S.store.set.idle+'분','ok');
   add('방문 기록 자동 저장 안 함','ok');
   add(S.swOk?'오프라인 사용 가능':'오프라인 비활성',S.swOk?'ok':'');
 }
@@ -1150,7 +1081,7 @@ function renderChips(){
 function renderBanner(){
   const b=$('lim-ban');
   if(S.mode==='secure'){b.hidden=true;return}
-  b.hidden=false;b.textContent='보안 기능 제한: '+S.reasons.join(' ')+' PIN과 즐겨찾기 저장이 비활성됩니다. HTTPS 호스팅으로 열면 모든 기능을 사용할 수 있습니다.';
+  b.hidden=false;b.textContent='보안 기능 제한: '+S.reasons.join(' ')+' 즐겨찾기와 설정이 저장되지 않고 이 페이지를 닫으면 사라집니다.';
 }
 
 /* =========== UI 도우미 =========== */
@@ -1192,7 +1123,6 @@ function regSW(){
 
 /* =========== 이벤트 =========== */
 function bind(){
-  $('f-setup').addEventListener('submit',onSetup);
   $('f-unlock').addEventListener('submit',onUnlock);
   $('forgot-btn').addEventListener('click',resetAll);
 
@@ -1212,12 +1142,10 @@ function bind(){
   $('f-item').addEventListener('submit',saveItem);
 
   ['s-theme','s-idle','s-hide','s-pop'].forEach(id=>$(id).addEventListener('change',saveSet));
-  $('f-pc').addEventListener('submit',onPinChange);
   $('chk-btn').addEventListener('click',storageCheck);
   $('reset-btn').addEventListener('click',resetAll);
 
   document.querySelectorAll('dialog [data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
-  $('d-set').addEventListener('close',()=>clr(['pc-cur','pc-new','pc-new2']));
 
   ['pointerdown','keydown','wheel','touchstart'].forEach(t=>document.addEventListener(t,()=>{if(S.unlocked)markAct()},{passive:true,capture:true}));
 
@@ -1250,14 +1178,11 @@ function init(){
   if(isFramed()){$('frame-guard').hidden=false;return}
   const cOk=hasCrypto(),sOk=storageOk();
   S.store=sOk?load():defaults();
-  if(!cOk)S.reasons.push('Web Crypto API 사용 불가 (HTTPS가 아닌 환경).');
   if(!sOk)S.reasons.push('브라우저 저장소 사용 불가.');
   S.mode=cOk&&sOk?'secure':'limited';
   applyTheme();bind();regSW();purgeSiteData();
-  if(!cOk&&S.store.pin)showLock('unavail');
-  else if(S.mode==='limited')enter();
-  else if(!S.store.pin)showLock('setup');
-  else showLock('unlock');
+  // PIN을 확인할 수 없는 환경(HTTPS 아님 등)에서는 열지 않는다.
+  showLock(cOk?'unlock':'unavail');
 }
 
 init();
