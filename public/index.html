@@ -106,7 +106,30 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;strok
   border-bottom:1px solid var(--border);background:var(--surface);
   position:sticky;top:0;z-index:6;
 }
-.topbar .acts{margin-left:auto;display:flex;gap:.35rem}
+.topbar .acts{margin-left:auto;display:flex;gap:.35rem;flex:none}
+.topbar .brand{flex:none}
+
+/* 탭 */
+.tabbar{flex:1;min-width:0;display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;padding:2px 0}
+.tabbar::-webkit-scrollbar{display:none}
+.tab{flex:0 1 200px;min-width:72px;max-width:220px;height:36px;display:flex;align-items:center;gap:.4rem;padding:0 .2rem 0 .55rem;border:1px solid transparent;border-radius:var(--rs);cursor:pointer;font-size:.85rem;color:var(--muted);user-select:none;transition:background .15s,border-color .15s}
+.tab:hover{background:var(--hover)}
+.tab[aria-selected="true"]{background:var(--elevated);border-color:var(--border);color:var(--text)}
+.tab-ic{flex:none;width:18px;height:18px;border-radius:5px;display:grid;place-items:center;font-size:.72rem;font-weight:700;background:var(--accent);color:var(--accent-t)}
+svg.tab-ic{background:none;color:inherit;padding:0}
+.tab.ld .tab-ic{background:none;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;color:transparent;animation:sp .85s linear infinite}
+.tab-tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tab-x{flex:none;min-height:24px;min-width:24px;padding:0;border:0;background:transparent;border-radius:6px}
+.tab-x svg.ic{width:14px;height:14px}
+.tab-x:hover{background:var(--hover)}
+.tab-new{flex:none;min-height:32px;min-width:32px;padding:0;border-color:transparent;background:transparent}
+.tab-new:hover{background:var(--hover)}
+/* 탭이 많으면 Chrome처럼 더 좁아지고, 선택되지 않은 탭의 닫기 버튼은 마우스를 올릴 때만 보인다. */
+.tabbar.many .tab{min-width:44px;padding-left:.45rem}
+.tabbar.many .tab:not([aria-selected="true"]):not(:hover) .tab-x{display:none}
+.topbar:has(.tabbar.many) .brand b{display:none}
+@media(prefers-reduced-motion:reduce){.tab.ld .tab-ic{animation:none}}
+@media(max-width:840px){.topbar .brand b,.topbar .bl{display:none}}
 .bl{display:inline}
 
 #addr-form{display:flex;gap:.5rem;padding:6px 16px 2px;max-width:1080px;width:100%;margin:0 auto}
@@ -165,17 +188,18 @@ main{flex:1;display:flex;flex-direction:column;width:100%}
 #addr-form.vw #addr-go{display:none}
 #addr-form.vw #addr-in{border-left:3px solid var(--ok)}
 .fwrap{position:relative;flex:1;min-height:55vh;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:#fff}
+.tabpane{position:absolute;inset:0}
 .fwrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
-#v-load{position:absolute;inset:0;display:grid;place-items:center;background:var(--surface);color:var(--text);z-index:2;text-align:center;padding:16px}
+.v-load{position:absolute;inset:0;display:grid;place-items:center;background:var(--surface);color:var(--text);z-index:2;text-align:center;padding:16px}
 .spin{width:32px;height:32px;border-radius:50%;border:3.5px solid var(--border);border-top-color:var(--accent);animation:sp .85s linear infinite;margin:0 auto .5rem}
 @keyframes sp{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.spin{animation:none}}
 
-#v-err{text-align:left;max-width:480px;margin:0 auto}
-#v-err h3{font-size:1rem;margin:0 0 .5rem;color:var(--danger)}
-#v-err ul{margin:.3rem 0 .6rem;padding-left:1.1rem;font-size:.9rem}
-#v-err li{margin:.2rem 0}
-#v-err .row{margin-top:.5rem}
+.v-err{text-align:left;max-width:480px;margin:0 auto}
+.v-err h3{font-size:1rem;margin:0 0 .5rem;color:var(--danger)}
+.v-err ul{margin:.3rem 0 .6rem;padding-left:1.1rem;font-size:.9rem}
+.v-err li{margin:.2rem 0}
+.v-err .row{margin-top:.5rem}
 
 /* ---- 대화상자 ---- */
 dialog{border:1px solid var(--border);border-radius:var(--r);background:var(--surface);color:var(--text);padding:0;width:min(540px,calc(100vw - 32px));max-height:calc(100vh - 32px);box-shadow:var(--shadow)}
@@ -272,6 +296,8 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
 <div id="app" hidden>
   <header class="topbar">
     <div class="brand"><img class="logo" src="icons/icon-192.png" alt=""><b>Geo-Zebra</b></div>
+    <div id="tabbar" class="tabbar" role="tablist" aria-label="탭"></div>
+    <button type="button" id="tab-new" class="tab-new" title="새 탭 (Alt+T)" aria-label="새 탭"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
     <div class="acts">
       <span id="conn-status" class="chip chip-ok" title="연결 상태" style="font-size:.72rem;cursor:help">● 연결됨</span>
       <button type="button" id="btn-home" title="홈"><svg class="ic" aria-hidden="true"><use href="#i-home"/></svg><span class="bl">홈</span></button>
@@ -292,8 +318,8 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
     </div>
     <button type="submit" class="btn-p" id="addr-go"><svg class="ic" aria-hidden="true"><use href="#i-go"/></svg><span class="bl">이동</span></button>
     <button type="button" id="v-save" class="vbtn" title="즐겨찾기에 저장"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg></button>
-    <button type="button" id="v-tab" class="vbtn" title="새 탭에서 열기"><svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></button>
-    <button type="button" id="v-close" class="vbtn" title="닫기"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <button type="button" id="v-tab" class="vbtn" title="Chrome 새 탭에서 열기 (Chrome 기록에 남음)"><svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></button>
+    <button type="button" id="v-close" class="vbtn" title="탭 닫기 (Alt+W)"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
   </form>
   <p class="msg" id="addr-msg" aria-live="polite"></p>
 
@@ -338,7 +364,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
         </ul>
         <h3>이 앱이 제어할 수 없는 것</h3>
         <ul>
-          <li>Chrome 방문 기록 — iframe 내 탐색은 기록되지 않으나, "새 탭"으로 연 사이트는 Chrome 기록에 남습니다</li>
+          <li>Chrome 방문 기록 — 앱 안의 탭에서 본 사이트는 기록되지 않으나, "Chrome 새 탭에서 열기"로 연 사이트는 Chrome 기록에 남습니다</li>
           <li>Google 계정의 웹 및 앱 활동 (Google에 로그인 상태라면 서버 측 활동 기록이 남을 수 있음)</li>
           <li>학교 기기 관리 정책·네트워크·필터링 기록</li>
           <li>방문한 사이트가 자체적으로 남기는 기록</li>
@@ -349,14 +375,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
 
     <!-- 뷰어 -->
     <section id="viewer" aria-label="웹사이트 보기" hidden>
-      <div class="fwrap" id="fwrap">
-        <div id="v-load" role="status" aria-live="polite">
-          <div>
-            <div class="spin" aria-hidden="true"></div>
-            <p id="v-ltxt" style="margin:0">불러오는 중…</p>
-          </div>
-        </div>
-      </div>
+      <div class="fwrap" id="fwrap"></div>
     </section>
   </main>
 
@@ -465,10 +484,10 @@ const BLOCKERS=[];
 /* =========== 상태 (메모리 전용) =========== */
 const S={
   mode:'secure',reasons:[],store:null,unlocked:false,key:null,items:[],
-  curUrl:null,loadUrl:null,busy:false,lastAct:Date.now(),
-  idleTm:null,lockTm:null,frameTm:null,syncTm:null,toastTm:null,
-  editId:null,swOk:false,retries:0,
-  hist:[],histIdx:-1
+  busy:false,lastAct:Date.now(),
+  idleTm:null,lockTm:null,toastTm:null,
+  editId:null,swOk:false,
+  tabs:[],act:null,tabSeq:0
 };
 const $=id=>document.getElementById(id);
 
@@ -603,13 +622,14 @@ function busy(on,id,txt){S.busy=on;$(id).disabled=on;$(id).textContent=txt}
 function enter(){
   S.unlocked=true;clearInterval(S.lockTm);S.lockTm=null;
   $('lock').hidden=true;$('app').hidden=false;
-  renderBanner();renderChips();renderItems();showDash();
+  renderBanner();renderChips();renderItems();
+  if(!S.tabs.length)newTab();else activateTab(S.act||S.tabs[0]);
   markAct();startIdle();$('addr-in').focus();
 }
 
 function lock(){
   document.querySelectorAll('dialog[open]').forEach(d=>d.close());
-  closeViewer();
+  closeAllTabs();
   clr(['it-name','it-url']);
   $('chk-rpt').hidden=true;$('chk-rpt').textContent='';
   S.items=[];S.key=null;S.unlocked=false;
@@ -891,38 +911,144 @@ const Agent = {
   }
 };
 
+/* =========== 탭 =========== */
+// 탭마다 주소·뒤로 가기 목록·iframe·로딩 화면·타이머를 따로 갖는다. 탭 목록은 메모리에만 있다.
+const MAX_TABS=10;
+function cur(){return S.act?S.act.curUrl:null}
+function isAct(t){return t===S.act}
+
+function newTab(url,{activate=true,after=false}={}){
+  if(S.tabs.length>=MAX_TABS){toast('탭은 최대 '+MAX_TABS+'개까지 열 수 있습니다.');return null}
+  const pane=document.createElement('div');pane.className='tabpane';pane.hidden=true;
+  const ld=document.createElement('div');ld.className='v-load';ld.setAttribute('role','status');ld.setAttribute('aria-live','polite');ld.hidden=true;
+  pane.appendChild(ld);$('fwrap').appendChild(pane);
+  const t={id:++S.tabSeq,pane,ld,frame:null,curUrl:null,loadUrl:null,hist:[],histIdx:-1,retries:0,frameTm:null,syncTm:null,title:'',loading:false};
+  const at=after&&S.act&&S.tabs.includes(S.act)?S.tabs.indexOf(S.act)+1:S.tabs.length;
+  S.tabs.splice(at,0,t);
+  if(activate)activateTab(t);else renderTabs();
+  if(url)openIn(t,url);
+  return t;
+}
+
+function openIn(t,url){
+  if(Agent.mode==='agent'&&Agent.connected)openViewerAgent(url,false,t);
+  else openViewer(url,false,t);
+}
+
+function activateTab(t){
+  S.act=t;
+  S.tabs.forEach(x=>{x.pane.hidden=x!==t});
+  setMsg('addr-msg','');
+  showView();updNav();renderTabs();
+}
+
+// 현재 탭에 사이트가 있으면 뷰어, 없으면(새 탭) 대시보드를 보여 준다.
+function showView(){
+  const u=cur();
+  $('viewer').hidden=!u;$('dash').hidden=!!u;
+  $('addr-form').classList.toggle('vw',!!u);
+  if(document.activeElement!==$('addr-in'))$('addr-in').value=u||'';
+}
+
+function closeTab(t){
+  const i=S.tabs.indexOf(t);if(i<0)return;
+  killFrame(t);t.pane.remove();S.tabs.splice(i,1);
+  if(!S.tabs.length)newTab();
+  else if(t===S.act)activateTab(S.tabs[Math.min(i,S.tabs.length-1)]);
+  else renderTabs();
+  if(!S.tabs.some(x=>x.curUrl))purgeSiteData();
+}
+
+// 현재 탭을 새 탭 화면(대시보드)으로 되돌린다.
+function goHome(){
+  const t=S.act;if(!t)return;
+  killFrame(t);t.curUrl=null;t.loadUrl=null;t.hist=[];t.histIdx=-1;t.title='';t.loading=false;t.ld.hidden=true;
+  $('addr-in').value='';activateTab(t);
+  if(!S.tabs.some(x=>x.curUrl))purgeSiteData();
+}
+
+function closeAllTabs(){
+  S.tabs.forEach(t=>{killFrame(t);t.pane.remove()});
+  S.tabs=[];S.act=null;
+  $('addr-in').value='';
+  newTab();
+  purgeSiteData();
+}
+
+function switchTab(d){
+  if(S.tabs.length<2)return;
+  const i=S.tabs.indexOf(S.act);
+  activateTab(S.tabs[(i+d+S.tabs.length)%S.tabs.length]);
+}
+
+function svgIcon(id){
+  const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('class','ic');s.setAttribute('aria-hidden','true');
+  const u=document.createElementNS('http://www.w3.org/2000/svg','use');u.setAttribute('href','#'+id);s.appendChild(u);return s;
+}
+
+function renderTabs(){
+  const bar=$('tabbar');
+  const hadFocus=bar.contains(document.activeElement);
+  while(bar.firstChild)bar.removeChild(bar.firstChild);
+  bar.classList.toggle('many',S.tabs.length>6);
+  S.tabs.forEach(t=>{
+    const label=t.curUrl?(t.title||hostOf(t.curUrl)):'새 탭';
+    const el=document.createElement('div');el.className='tab'+(t.loading?' ld':'');
+    el.setAttribute('role','tab');el.tabIndex=t===S.act?0:-1;el.setAttribute('aria-selected',t===S.act?'true':'false');
+    el.title=t.curUrl?label+'\n'+t.curUrl:'새 탭';
+    let ic;
+    if(t.curUrl){ic=document.createElement('span');ic.textContent=(Array.from(hostOf(t.curUrl).replace(/^www\./,''))[0]||'?').toUpperCase()}
+    else ic=svgIcon('i-home');
+    ic.classList.add('tab-ic');
+    const tt=document.createElement('span');tt.className='tab-tt';tt.textContent=label;
+    const x=document.createElement('button');x.type='button';x.className='tab-x';x.title='탭 닫기 (Alt+W)';x.setAttribute('aria-label',label+' 탭 닫기');
+    x.appendChild(svgIcon('i-x'));
+    x.addEventListener('click',ev=>{ev.stopPropagation();closeTab(t)});
+    el.addEventListener('click',()=>{if(t!==S.act)activateTab(t)});
+    el.addEventListener('auxclick',ev=>{if(ev.button===1){ev.preventDefault();closeTab(t)}});
+    el.addEventListener('keydown',ev=>{
+      if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();activateTab(t)}
+      else if(ev.key==='ArrowRight'||ev.key==='ArrowLeft'){ev.preventDefault();switchTab(ev.key==='ArrowRight'?1:-1)}
+      else if(ev.key==='Delete'){ev.preventDefault();closeTab(t)}
+    });
+    el.append(ic,tt,x);bar.appendChild(el);
+  });
+  const a=bar.querySelector('[aria-selected="true"]');
+  if(a){a.scrollIntoView({block:'nearest',inline:'nearest'});if(hadFocus)a.focus()}
+}
+
 // 에이전트 모드로 페이지 표시 (srcdoc 또는 blob URL 사용)
-async function openViewerAgent(url, skipHist) {
-  killFrame();
-  S.curUrl = url;
-  S.loadUrl = null;
+async function openViewerAgent(url, skipHist, t = S.act) {
+  killFrame(t);
+  t.curUrl = url;
+  t.loadUrl = null;
+  t.title = '';
   Agent.mode = 'agent';
   Agent.updateStatus('connected');
 
   if (!skipHist) {
-    S.hist.length = S.histIdx + 1;
-    S.hist.push(url);
-    S.histIdx = S.hist.length - 1;
+    t.hist.length = t.histIdx + 1;
+    t.hist.push(url);
+    t.histIdx = t.hist.length - 1;
   }
-  updNav();
-
-  $('dash').hidden = true;
-  $('viewer').hidden = false;
-  $('addr-form').classList.add('vw');
-  $('addr-in').value = url;
-  setMsg('addr-msg', '');
-  resetLoader('에이전트가 페이지를 가져오는 중…');
+  if (isAct(t)) {
+    updNav();
+    showView();
+    $('addr-in').value = url;
+    setMsg('addr-msg', '');
+  }
+  resetLoader(t, '에이전트가 페이지를 가져오는 중…');
+  renderTabs();
 
   try {
     const result = await Agent.navigate(url);
-    if (S.curUrl !== url) return; // 사용자가 다른 페이지로 이동함
+    if (t.curUrl !== url || !S.tabs.includes(t)) return; // 사용자가 다른 페이지로 이동했거나 탭을 닫음
 
     // blob URL로 iframe에 표시
     const blob = new Blob([result.html], { type: 'text/html;charset=utf-8' });
     const blobUrl = URL.createObjectURL(blob);
 
-    const old = $('fwrap').querySelector('iframe');
-    if (old) old.remove();
+    if (t.frame) { t.frame.remove(); t.frame = null; }
 
     const f = document.createElement('iframe');
     f.title = (result.title || hostOf(url)) + ' (에이전트 모드)';
@@ -930,7 +1056,9 @@ async function openViewerAgent(url, skipHist) {
     f.setAttribute('referrerpolicy', 'no-referrer');
 
     f.addEventListener('load', () => {
-      $('v-load').hidden = true;
+      t.ld.hidden = true;
+      t.loading = false;
+      renderTabs();
       URL.revokeObjectURL(blobUrl);
       // 에이전트 렌더링된 페이지 내 링크 클릭을 가로채기
       try {
@@ -946,7 +1074,7 @@ async function openViewerAgent(url, skipHist) {
             let abs;
             try { abs = new URL(href, url).href; } catch { return; }
             if (abs.startsWith('http://') || abs.startsWith('https://')) {
-              navTo(abs);
+              navTo(abs, t);
             }
           }, true);
         }
@@ -954,27 +1082,32 @@ async function openViewerAgent(url, skipHist) {
     }, { once: true });
 
     f.src = blobUrl;
-    $('fwrap').appendChild(f);
+    t.pane.appendChild(f);
+    t.frame = f;
+    t.title = result.title || '';
 
     // 주소바 업데이트
     if (result.url && result.url !== url) {
-      S.curUrl = result.url;
-      $('addr-in').value = result.url;
+      t.curUrl = result.url;
+      if (isAct(t)) $('addr-in').value = result.url;
     }
+    renderTabs();
 
   } catch (err) {
-    if (S.curUrl !== url) return;
-    showAgentError(url, err.message);
+    if (t.curUrl !== url) return;
+    showAgentError(t, url, err.message);
   }
 }
 
-function showAgentError(url, message) {
-  const wrap = $('v-load');
+function showAgentError(t, url, message) {
+  const wrap = t.ld;
   while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
   wrap.hidden = false;
+  t.loading = false;
+  renderTabs();
 
   const box = document.createElement('div');
-  box.id = 'v-err';
+  box.className = 'v-err';
 
   const h = document.createElement('h3');
   h.textContent = '에이전트 모드 로드 실패';
@@ -992,14 +1125,14 @@ function showAgentError(url, message) {
   const retryAgent = document.createElement('button');
   retryAgent.type = 'button';
   retryAgent.textContent = '에이전트로 재시도';
-  retryAgent.addEventListener('click', () => openViewerAgent(url));
+  retryAgent.addEventListener('click', () => openViewerAgent(url, false, t));
   row.appendChild(retryAgent);
 
   const retryProxy = document.createElement('button');
   retryProxy.type = 'button';
   retryProxy.className = 'btn-p';
   retryProxy.textContent = '프록시로 시도';
-  retryProxy.addEventListener('click', () => { Agent.mode = 'proxy'; openViewer(url); });
+  retryProxy.addEventListener('click', () => { Agent.mode = 'proxy'; openViewer(url, false, t); });
   row.appendChild(retryProxy);
 
   box.appendChild(row);
@@ -1013,57 +1146,95 @@ function sbx(){
   return t.join(' ');
 }
 
-function killFrame(){
-  clearTimeout(S.frameTm);S.frameTm=null;clearInterval(S.syncTm);S.syncTm=null;S.retries=0;
-  const old=$('fwrap').querySelector('iframe');if(old)old.remove();
+function killFrame(t){
+  clearTimeout(t.frameTm);t.frameTm=null;clearInterval(t.syncTm);t.syncTm=null;t.retries=0;
+  if(t.frame){t.frame.remove();t.frame=null}
 }
 
-function resetLoader(txt){
-  const w=$('v-load');while(w.firstChild)w.removeChild(w.firstChild);
+function resetLoader(t,txt){
+  const w=t.ld;while(w.firstChild)w.removeChild(w.firstChild);
   const box=document.createElement('div'),sp=document.createElement('div'),p=document.createElement('p');
-  sp.className='spin';sp.setAttribute('aria-hidden','true');p.id='v-ltxt';p.style.margin='0';p.textContent=txt;
+  sp.className='spin';sp.setAttribute('aria-hidden','true');p.className='v-ltxt';p.style.margin='0';p.textContent=txt;
   box.append(sp,p);w.appendChild(box);w.hidden=false;
+  t.loading=true;
 }
 
-async function openViewer(url,skipHist){
-  killFrame();S.curUrl=url;S.loadUrl=null;
+async function openViewer(url,skipHist,t=S.act){
+  killFrame(t);t.curUrl=url;t.loadUrl=null;t.title='';
   if(!skipHist){
-    S.hist.length=S.histIdx+1;
-    S.hist.push(url);S.histIdx=S.hist.length-1;
+    t.hist.length=t.histIdx+1;
+    t.hist.push(url);t.histIdx=t.hist.length-1;
   }
-  updNav();
-  $('dash').hidden=true;$('viewer').hidden=false;
-  $('addr-form').classList.add('vw');
-  $('addr-in').value=url;
-  setMsg('addr-msg','');
-  resetLoader('프록시 준비 중…');
-  try{await pxReady()}catch(e){if(S.curUrl===url)showErrAnalysis(e.message);return}
-  if(S.curUrl!==url)return;
-  S.loadUrl=pxEnc(url);
-  attempt(S.loadUrl);
+  if(isAct(t)){
+    updNav();showView();
+    $('addr-in').value=url;
+    setMsg('addr-msg','');
+  }
+  resetLoader(t,'프록시 준비 중…');renderTabs();
+  try{await pxReady()}catch(e){if(t.curUrl===url)showErrAnalysis(t,e.message);return}
+  if(t.curUrl!==url||!S.tabs.includes(t))return;
+  t.loadUrl=pxEnc(url);
+  attempt(t,t.loadUrl);
 }
 
 function realUrlOf(win){
   try{const l=win.location;if(l.origin!==location.origin||!l.pathname.startsWith(PX_PREFIX))return null;return pxDec((l.pathname+l.search).slice(PX_PREFIX.length))}catch(e){return null}
 }
 
-// 팝업은 sandbox로 막혀 있으므로, 새 창(target=_blank, window.open)으로 여는 링크를 같은 프레임 안에서 연다.
+// 사이트 코드가 넘긴 주소(상대 주소 또는 이미 프록시 주소일 수 있음)를 원래 http(s) 주소로 바꾼다.
+function toRealUrl(raw,base){
+  let s=String(raw||'');
+  const full=location.origin+PX_PREFIX;
+  if(s.startsWith(full))s=pxDec(s.slice(full.length));
+  else if(s.startsWith(PX_PREFIX))s=pxDec(s.slice(PX_PREFIX.length));
+  try{const u=new URL(s,base||undefined);return u.protocol==='https:'||u.protocol==='http:'?u.href:null}catch(e){return null}
+}
+
+// Chrome처럼 사용자 입력 1번에 팝업(새 탭) 1개만 허용한다. 입력 후 5초가 지나면 무효.
+function takeGesture(win){
+  const g=win.__qsGesture||0;
+  if(!g||Date.now()-g>5000||win.__qsGestureUsed===g)return false;
+  win.__qsGestureUsed=g;return true;
+}
+
+// 팝업은 sandbox로 막혀 있으므로, 새 창(target=_blank, window.open)으로 여는 링크는 Chrome처럼 새 탭에서 연다.
+// 바깥 창(_top/_parent)을 향하는 링크·폼은 같은 프레임 안에서 연다.
 function hookFrame(win){
   let doc;try{doc=win.document}catch(e){return}
   if(!doc||doc.__qsHooked||!realUrlOf(win))return;
   doc.__qsHooked=true;
   // 사이트 화면 안의 입력도 활동으로 쳐서, 사용 중에 자동 잠금되지 않게 한다.
   ['pointerdown','keydown','wheel','touchstart'].forEach(t=>doc.addEventListener(t,()=>{if(S.unlocked)markAct()},{passive:true,capture:true}));
-  win.open=function(raw){
-    if(raw){
-      let u;try{u=new URL(String(raw),realUrlOf(win))}catch(e){u=null}
-      if(u&&(u.protocol==='https:'||u.protocol==='http:'))win.location.href=pxEnc(u.href);
+  // 사이트 화면에 포커스가 있어도 앱 단축키(탭·잠금·새로고침 등)가 동작하게 한다.
+  doc.addEventListener('keydown',ev=>{if(handleKey(ev,true)){ev.preventDefault();ev.stopPropagation()}},true);
+  ['pointerdown','keydown'].forEach(t=>doc.addEventListener(t,ev=>{if(ev.isTrusted)win.__qsGesture=Date.now()},true));
+  win.open=function(raw,name){
+    const u=raw?toRealUrl(raw,realUrlOf(win)):null;
+    if(u){
+      const n=String(name||'').toLowerCase();
+      if(n==='_self'||n==='_top'||n==='_parent')win.location.href=pxEnc(u);
+      else if(takeGesture(win))newTab(u,{after:true});
     }
     return win;
   };
   doc.addEventListener('click',ev=>{
-    const a=ev.target&&ev.target.closest?ev.target.closest('a[target],area[target]'):null;
-    if(a&&!/^_self$/i.test(a.target))a.target='_self';
+    const a=ev.target&&ev.target.closest?ev.target.closest('a[href],area[href]'):null;
+    if(!a)return;
+    const tg=(a.getAttribute('target')||'').toLowerCase();
+    const bg=ev.ctrlKey||ev.metaKey,fg=ev.shiftKey;
+    const wantsTab=bg||fg||(tg!==''&&tg!=='_self'&&tg!=='_top'&&tg!=='_parent');
+    if(wantsTab&&takeGesture(win)){
+      const u=toRealUrl(a.href,realUrlOf(win));
+      if(u){ev.preventDefault();ev.stopPropagation();newTab(u,{activate:!bg,after:true});return}
+    }
+    if(tg&&tg!=='_self')a.target='_self';
+  },true);
+  doc.addEventListener('auxclick',ev=>{
+    if(ev.button!==1)return;
+    const a=ev.target&&ev.target.closest?ev.target.closest('a[href],area[href]'):null;
+    if(!a)return;
+    const u=toRealUrl(a.href,realUrlOf(win));
+    if(u&&takeGesture(win)){ev.preventDefault();ev.stopPropagation();newTab(u,{activate:false,after:true})}
   },true);
   doc.addEventListener('submit',ev=>{
     const fm=ev.target;if(fm&&fm.target&&!/^_self$/i.test(fm.target))fm.target='_self';
@@ -1082,71 +1253,81 @@ function hookTree(win,depth){
   try{for(let i=0;i<win.frames.length;i++)hookTree(win.frames[i],depth+1)}catch(e){}
 }
 
-// 사이트 안에서 링크로 이동하면 주소창과 뒤로 가기 목록을 따라 갱신한다.
-function syncAddr(){
-  const f=$('fwrap').querySelector('iframe');if(!f)return;
-  hookTree(f.contentWindow,0);
-  const u=realUrlOf(f.contentWindow);
-  if(!u||!/^https?:\/\//i.test(u)||u===S.curUrl)return;
-  S.curUrl=u;S.hist.length=S.histIdx+1;S.hist.push(u);S.histIdx=S.hist.length-1;updNav();
-  if(document.activeElement!==$('addr-in'))$('addr-in').value=u;
+// 사이트 안에서 링크로 이동하면 그 탭의 주소·뒤로 가기 목록·탭 제목을 따라 갱신한다.
+function syncAddr(t){
+  const f=t.frame;if(!f)return;
+  let w;try{w=f.contentWindow}catch(e){return}
+  if(!w)return;
+  hookTree(w,0);
+  let changed=false;
+  let ti='';try{ti=((w.document&&w.document.title)||'').trim()}catch(e){}
+  if(ti&&ti!==t.title){t.title=ti;changed=true}
+  const u=realUrlOf(w);
+  if(u&&/^https?:\/\//i.test(u)&&u!==t.curUrl){
+    t.curUrl=u;t.hist.length=t.histIdx+1;t.hist.push(u);t.histIdx=t.hist.length-1;changed=true;
+    if(isAct(t)){updNav();if(document.activeElement!==$('addr-in'))$('addr-in').value=u}
+  }
+  if(changed)renderTabs();
 }
 function updNav(){
-  $('v-back').disabled=S.histIdx<1;
-  $('v-fwd').disabled=S.histIdx>=S.hist.length-1;
+  const t=S.act;
+  $('v-back').disabled=!t||t.histIdx<1;
+  $('v-fwd').disabled=!t||t.histIdx>=t.hist.length-1;
 }
 function goBack(){
-  if(S.histIdx<1)return;
-  S.histIdx--;openViewer(S.hist[S.histIdx],true);
+  const t=S.act;if(!t||t.histIdx<1)return;
+  t.histIdx--;openViewer(t.hist[t.histIdx],true,t);
 }
 function goFwd(){
-  if(S.histIdx>=S.hist.length-1)return;
-  S.histIdx++;openViewer(S.hist[S.histIdx],true);
+  const t=S.act;if(!t||t.histIdx>=t.hist.length-1)return;
+  t.histIdx++;openViewer(t.hist[t.histIdx],true,t);
 }
 function doRefresh(){
-  if(S.curUrl)openViewer(S.curUrl,true);
+  if(cur())openViewer(cur(),true,S.act);
 }
 
-function attempt(url){
-  S.retries++;
-  const old=$('fwrap').querySelector('iframe');if(old)old.remove();
-  resetLoader(S.retries>1?'불러오는 중… (시도 '+S.retries+'/'+MAX_RETRY+')':'불러오는 중…');
+function attempt(t,url){
+  t.retries++;
+  if(t.frame){t.frame.remove();t.frame=null}
+  resetLoader(t,t.retries>1?'불러오는 중… (시도 '+t.retries+'/'+MAX_RETRY+')':'불러오는 중…');
 
   const f=document.createElement('iframe');
-  f.title=hostOf(S.curUrl)+' 페이지';
+  f.title=hostOf(t.curUrl)+' 페이지';
   f.setAttribute('sandbox',sbx());
   f.setAttribute('referrerpolicy','no-referrer');
   f.setAttribute('allow','fullscreen; autoplay; encrypted-media; picture-in-picture');
   f.setAttribute('loading','eager');
 
   f.addEventListener('load',function onLoad(){
-    clearTimeout(S.frameTm);S.frameTm=null;
-    $('v-load').hidden=true;
+    clearTimeout(t.frameTm);t.frameTm=null;
+    t.ld.hidden=true;t.loading=false;renderTabs();
   },{once:true});
-  f.addEventListener('load',()=>syncAddr());
+  f.addEventListener('load',()=>syncAddr(t));
 
   f.src=url;
-  $('fwrap').appendChild(f);
-  clearInterval(S.syncTm);S.syncTm=setInterval(syncAddr,700);
+  t.pane.appendChild(f);t.frame=f;
+  clearInterval(t.syncTm);t.syncTm=setInterval(()=>syncAddr(t),700);
 
-  clearTimeout(S.frameTm);
-  S.frameTm=setTimeout(()=>{
-    if(S.retries<MAX_RETRY){
-      $('v-ltxt').textContent='응답이 늦습니다. 자동 재시도 중… ('+S.retries+'/'+MAX_RETRY+')';
-      setTimeout(()=>{if(S.loadUrl===url)attempt(url)},RETRY_DELAY);
+  clearTimeout(t.frameTm);
+  t.frameTm=setTimeout(()=>{
+    if(t.retries<MAX_RETRY){
+      const p=t.ld.querySelector('.v-ltxt');
+      if(p)p.textContent='응답이 늦습니다. 자동 재시도 중… ('+t.retries+'/'+MAX_RETRY+')';
+      setTimeout(()=>{if(t.loadUrl===url&&S.tabs.includes(t))attempt(t,url)},RETRY_DELAY);
     }else{
-      showErrAnalysis();
+      showErrAnalysis(t);
     }
   },FRAME_TO);
 }
 
-function showErrAnalysis(cause){
-  clearTimeout(S.frameTm);S.frameTm=null;
-  const wrap=$('v-load');
+function showErrAnalysis(t,cause){
+  clearTimeout(t.frameTm);t.frameTm=null;
+  const wrap=t.ld;
   while(wrap.firstChild)wrap.removeChild(wrap.firstChild);
   wrap.hidden=false;
+  t.loading=false;renderTabs();
 
-  const box=document.createElement('div');box.id='v-err';
+  const box=document.createElement('div');box.className='v-err';
 
   const h=document.createElement('h3');
   h.textContent=cause?'프록시를 시작하지 못했습니다':MAX_RETRY+'회 시도 후 로드 실패 — 오류 분석';
@@ -1167,51 +1348,64 @@ function showErrAnalysis(cause){
   if(Agent.connected){
     const agentBtn=document.createElement('button');agentBtn.type='button';agentBtn.className='btn-p';agentBtn.textContent='⚡ 에이전트 모드로 보기';
     agentBtn.title='서버에서 페이지를 렌더링해서 보여줍니다. 영상은 재생 불가.';
-    agentBtn.addEventListener('click',()=>{if(S.curUrl)openViewerAgent(S.curUrl)});
+    agentBtn.addEventListener('click',()=>{if(t.curUrl)openViewerAgent(t.curUrl,false,t)});
     row.appendChild(agentBtn);
   }
 
-  const ntb=document.createElement('button');ntb.type='button';ntb.textContent='새 탭에서 열기';
+  const ntb=document.createElement('button');ntb.type='button';ntb.textContent='Chrome 새 탭에서 열기';
   ntb.addEventListener('click',openNewTab);row.appendChild(ntb);
 
   const cp=document.createElement('button');cp.type='button';cp.textContent='주소 복사';
   cp.addEventListener('click',copyUrl);row.appendChild(cp);
 
   const retry=document.createElement('button');retry.type='button';retry.className='btn-p';retry.textContent='프록시로 재시도';
-  retry.addEventListener('click',()=>{if(S.curUrl)openViewer(S.curUrl)});row.appendChild(retry);
+  retry.addEventListener('click',()=>{if(t.curUrl)openViewer(t.curUrl,false,t)});row.appendChild(retry);
 
   box.appendChild(row);
   wrap.appendChild(box);
 }
 
-function closeViewer(){
-  killFrame();S.curUrl=null;S.loadUrl=null;S.hist=[];S.histIdx=-1;
-  $('addr-in').value='';setMsg('addr-msg','');$('addr-form').classList.remove('vw');showDash();
-  purgeSiteData();
-}
-function showDash(){$('viewer').hidden=true;$('dash').hidden=false}
-
-function navTo(raw){
+function navTo(raw,t=S.act){
   const r=normUrl(raw);
-  if(r.err){setMsg('addr-msg',r.err,'e');$('addr-in').focus();return}
-  setMsg('addr-msg',r.note||'',r.note?'w':'');
-  $('addr-in').value=r.url;$('addr-in').blur();
+  if(r.err){if(isAct(t)){setMsg('addr-msg',r.err,'e');$('addr-in').focus()}return}
+  if(isAct(t)){
+    setMsg('addr-msg',r.note||'',r.note?'w':'');
+    $('addr-in').value=r.url;$('addr-in').blur();
+  }
   // 에이전트 모드가 활성화되어 있으면 에이전트로, 아니면 프록시로
-  if(Agent.mode==='agent'&&Agent.connected)openViewerAgent(r.url);
-  else openViewer(r.url);
+  openIn(t,r.url);
+}
+
+// 앱 단축키. 사이트 화면 안(inFrame)에서 눌러도 동작한다. 처리했으면 true.
+function handleKey(ev,inFrame){
+  if(!S.unlocked)return false;
+  const alt=ev.altKey&&!ev.ctrlKey&&!ev.metaKey,k=ev.key;
+  if(alt&&(k==='l'||k==='L')){lock();return true}
+  if(alt&&(k==='t'||k==='T')){if(newTab())$('addr-in').focus();return true}
+  if(alt&&(k==='w'||k==='W')){if(S.act)closeTab(S.act);return true}
+  if(alt&&k===']'){switchTab(1);return true}
+  if(alt&&k==='['){switchTab(-1);return true}
+  if(alt&&k==='ArrowLeft'){goBack();return true}
+  if(alt&&k==='ArrowRight'){goFwd();return true}
+  if(k==='F5'&&!ev.ctrlKey){doRefresh();return true}
+  if(!inFrame&&k==='/'){
+    const tag=(ev.target&&ev.target.tagName)||'';
+    if(tag!=='INPUT'&&tag!=='TEXTAREA'&&tag!=='SELECT'&&!document.querySelector('dialog[open]')){$('addr-in').focus();$('addr-in').select();return true}
+  }
+  return false;
 }
 
 async function openNewTab(){
-  if(!S.curUrl)return;
-  const ok=await confirm({title:'새 탭에서 열기',
-    msg:hostOf(S.curUrl)+' 을(를) 새 탭에서 엽니다.\n\n새 탭은 일반 탐색이므로 Chrome 방문 기록, Google 계정 활동, 학교 관리·네트워크 기록에 남을 수 있습니다.\n\n팁: 시크릿 모드(Ctrl+Shift+N)를 사용하면 Chrome 기록에 남지 않습니다.',
-    ok:'새 탭에서 열기'});
-  if(ok)window.open(S.curUrl,'_blank','noopener,noreferrer');
+  const u=cur();if(!u)return;
+  const ok=await confirm({title:'Chrome 새 탭에서 열기',
+    msg:hostOf(u)+' 을(를) Chrome의 새 탭에서 엽니다.\n\nChrome 새 탭은 일반 탐색이므로 Chrome 방문 기록, Google 계정 활동, 학교 관리·네트워크 기록에 남을 수 있습니다.\n\n팁: 시크릿 모드(Ctrl+Shift+N)를 사용하면 Chrome 기록에 남지 않습니다.',
+    ok:'Chrome 새 탭에서 열기'});
+  if(ok)window.open(u,'_blank','noopener,noreferrer');
 }
 
 async function copyUrl(){
-  if(!S.curUrl)return;
-  try{await navigator.clipboard.writeText(S.curUrl);toast('주소를 클립보드에 복사했습니다.')}
+  const u=cur();if(!u)return;
+  try{await navigator.clipboard.writeText(u);toast('주소를 클립보드에 복사했습니다.')}
   catch(e){toast('복사할 수 없습니다. 주소 입력창에서 직접 복사하세요.')}
 }
 
@@ -1358,7 +1552,7 @@ async function resetAll(){
     msg:'바로가기·즐겨찾기, 앱 설정, 오프라인 캐시가 이 기기에서 삭제됩니다. 되돌릴 수 없습니다.\n\nPIN은 고정이라 초기화 후에도 같은 PIN으로만 열 수 있습니다.\n(Chrome 방문 기록이나 Google 계정 활동은 삭제되지 않습니다.)',
     ok:'초기화',req:'초기화'});
   if(!ok)return;
-  killFrame();S.curUrl=null;S.loadUrl=null;S.items=[];S.key=null;
+  closeAllTabs();S.items=[];S.key=null;
   await clearAll();location.reload();
 }
 
@@ -1422,15 +1616,16 @@ function bind(){
   $('forgot-btn').addEventListener('click',resetAll);
 
   $('addr-form').addEventListener('submit',ev=>{ev.preventDefault();navTo($('addr-in').value)});
-  $('btn-home').addEventListener('click',closeViewer);
+  $('btn-home').addEventListener('click',goHome);
+  $('tab-new').addEventListener('click',()=>{if(newTab())$('addr-in').focus()});
   $('btn-lock').addEventListener('click',lock);
   $('btn-set').addEventListener('click',openSet);
 
-  $('v-close').addEventListener('click',closeViewer);
+  $('v-close').addEventListener('click',()=>{if(S.act)closeTab(S.act)});
   $('v-back').addEventListener('click',goBack);
   $('v-fwd').addEventListener('click',goFwd);
   $('v-ref').addEventListener('click',doRefresh);
-  $('v-save').addEventListener('click',()=>{if(S.curUrl)openItemDlg('bookmark',null,S.curUrl)});
+  $('v-save').addEventListener('click',()=>{if(cur())openItemDlg('bookmark',null,cur())});
   $('v-tab').addEventListener('click',openNewTab);
   $('add-sc').addEventListener('click',()=>openItemDlg('shortcut'));
   $('add-bm').addEventListener('click',()=>openItemDlg('bookmark'));
@@ -1438,7 +1633,7 @@ function bind(){
 
   ['s-theme','s-idle','s-hide','s-pop','s-keep'].forEach(id=>$(id).addEventListener('change',saveSet));
   $('clr-login').addEventListener('click',async()=>{
-    if(S.curUrl)closeViewer();
+    if(S.tabs.some(x=>x.curUrl))closeAllTabs();
     await clearIdbStores('__op');toast('로그인 정보를 지웠습니다.');
   });
   $('chk-btn').addEventListener('click',storageCheck);
@@ -1448,16 +1643,7 @@ function bind(){
 
   ['pointerdown','keydown','wheel','touchstart'].forEach(t=>document.addEventListener(t,()=>{if(S.unlocked)markAct()},{passive:true,capture:true}));
 
-  document.addEventListener('keydown',ev=>{
-    if(!S.unlocked)return;
-    const tag=(ev.target&&ev.target.tagName)||'';
-    const typing=tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
-    if(ev.altKey&&!ev.ctrlKey&&!ev.metaKey&&(ev.key==='l'||ev.key==='L')){ev.preventDefault();lock()}
-    else if(ev.altKey&&!ev.ctrlKey&&!ev.metaKey&&ev.key==='ArrowLeft'){ev.preventDefault();goBack()}
-    else if(ev.altKey&&!ev.ctrlKey&&!ev.metaKey&&ev.key==='ArrowRight'){ev.preventDefault();goFwd()}
-    else if(ev.key==='F5'&&!ev.ctrlKey){ev.preventDefault();doRefresh()}
-    else if(ev.key==='/'&&!typing&&!document.querySelector('dialog[open]')){ev.preventDefault();$('addr-in').focus();$('addr-in').select()}
-  });
+  document.addEventListener('keydown',ev=>{if(handleKey(ev,false))ev.preventDefault()});
 
   document.addEventListener('visibilitychange',()=>{
     if(!S.unlocked)return;
