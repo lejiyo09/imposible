@@ -4,6 +4,11 @@
  * 클라이언트와 단일 WebSocket으로 연결.
  * 클라이언트 요청 시 서버에서 페이지를 fetch → HTML/CSS/이미지 인라인화 → 전송.
  * DNS 차단 환경에서도 기존 WebSocket이 살아있으면 계속 서핑 가능.
+ *
+ * ★ "항상 성공" 전략:
+ *   HTML fetch만 성공하면 반드시 페이지를 전송한다.
+ *   CSS/이미지 인라인은 남은 시간 예산 안에서 최선을 다하되,
+ *   시간이 부족하면 인라인 없이 기본 HTML을 보낸다. (못생겨도 링크는 작동)
  */
 
 const { JSDOM } = require('jsdom');
@@ -12,13 +17,15 @@ const { URL } = require('url');
 // ── 상수 ──
 const MAX_RESOURCE_SIZE = 2 * 1024 * 1024;   // 개별 리소스 최대 2MB
 const MAX_PAGE_SIZE = 8 * 1024 * 1024;        // 전체 페이지 최대 8MB
-const FETCH_TIMEOUT = 8000;                    // 리소스 fetch 타임아웃 8초 (기존 15초→8초)
-const PAGE_TIMEOUT = 20000;                    // HTML fetch 타임아웃 20초
-const RENDER_TIMEOUT = 25000;                  // renderPage 전체 타임아웃 25초
+const FETCH_TIMEOUT = 6000;                    // 리소스 fetch 타임아웃 6초
+const PAGE_TIMEOUT = 15000;                    // HTML fetch 타임아웃 15초
+const TOTAL_DEADLINE = 25000;                  // 전체 처리 데드라인 25초
+const INLINE_BUDGET = 12000;                   // CSS/이미지 인라인 시간 예산 12초
+const MIN_INLINE_BUDGET = 2000;                // 최소 인라인 예산 2초 (이하면 건너뜀)
 const HEARTBEAT_INTERVAL = 25000;              // 하트비트 간격 25초
-const MAX_INLINE_IMAGES = 20;                  // 인라인할 이미지 최대 개수
-const MAX_INLINE_CSS = 8;                      // 인라인할 CSS 최대 개수
-const MAX_CSS_URL_REFS = 15;                   // CSS 내 url() 인라인 최대 개수
+const MAX_INLINE_IMAGES = 15;                  // 인라인할 이미지 최대 개수
+const MAX_INLINE_CSS = 6;                      // 인라인할 CSS 최대 개수
+const MAX_CSS_URL_REFS = 10;                   // CSS 내 url() 인라인 최대 개수
 
 // ── MIME 타입 매핑 ──
 const MIME_EXT = {
@@ -79,6 +86,18 @@ async function toDataUri(url) {
   }
 }
 
+// ── 데드라인 레이스: promise vs 시간 제한. 시간 초과 시 fallback 값 반환 ──
+function raceDeadline(promise, ms, fallback) {
+  if (ms <= 0) return Promise.resolve(fallback);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      () => { clearTimeout(timer); resolve(fallback); }
+    );
+  });
+}
+
 // ── CSS 내 url() 참조를 인라인 (개수 제한) ──
 async function inlineCssUrls(css, baseUrl) {
   const urlPattern = /url\(\s*['"]?([^'")]+)['"]?\s*\)/g;
@@ -105,9 +124,14 @@ async function inlineCssUrls(css, baseUrl) {
 // ── 외부 CSS를 인라인 <style>로 변환 (병렬 + 개수 제한) ──
 async function inlineStylesheets(doc, baseUrl) {
   const links = [...doc.querySelectorAll('link[rel="stylesheet"], link[rel="preload"][as="style"]')].slice(0, MAX_INLINE_CSS);
-  // 남은 CSS link는 제거 (제한 초과분)
+  // 남은 CSS link는 절대 URL로 변환 (제한 초과분도 로드는 시도할 수 있게)
   doc.querySelectorAll('link[rel="stylesheet"], link[rel="preload"][as="style"]').forEach((el, i) => {
-    if (i >= MAX_INLINE_CSS) el.remove();
+    if (i >= MAX_INLINE_CSS) {
+      const href = el.getAttribute('href');
+      if (href) {
+        try { el.setAttribute('href', new URL(href, baseUrl).href); } catch {}
+      }
+    }
   });
 
   await Promise.all(links.map(async (link) => {
@@ -122,7 +146,8 @@ async function inlineStylesheets(doc, baseUrl) {
       style.textContent = css;
       link.replaceWith(style);
     } catch {
-      link.remove(); // 실패한 CSS는 제거
+      // 실패한 CSS는 절대 URL로 남겨둠 (브라우저가 직접 로드 시도할 수 있게)
+      try { link.setAttribute('href', new URL(href, baseUrl).href); } catch {}
     }
   }));
 }
@@ -137,14 +162,25 @@ async function inlineImages(doc, baseUrl) {
       const abs = new URL(src, baseUrl).href;
       const dataUri = await toDataUri(abs);
       if (dataUri) img.setAttribute('src', dataUri);
-      else img.removeAttribute('src');
+      else img.setAttribute('src', abs); // 실패해도 절대 URL로
     } catch {
-      img.removeAttribute('src');
+      // 절대 URL로 남겨둠
+      try { img.setAttribute('src', new URL(src, baseUrl).href); } catch {}
     }
   }));
 
-  // srcset도 제거 (인라인 불가능)
-  doc.querySelectorAll('[srcset]').forEach(el => el.removeAttribute('srcset'));
+  // srcset → 절대 URL로 변환 (인라인 불가능하지만 URL은 살려둠)
+  doc.querySelectorAll('[srcset]').forEach(el => {
+    const srcset = el.getAttribute('srcset');
+    try {
+      const updated = srcset.replace(/(\S+)(\s+[\d.]+[wx])/g, (match, url, descriptor) => {
+        try { return new URL(url, baseUrl).href + descriptor; } catch { return match; }
+      });
+      el.setAttribute('srcset', updated);
+    } catch {
+      el.removeAttribute('srcset');
+    }
+  });
 }
 
 // ── 스크립트 제거 (보안 + 가벼움) ──
@@ -174,54 +210,51 @@ function absolutifyUrls(doc, baseUrl) {
   doc.querySelectorAll('form[action]').forEach(f => {
     try { f.setAttribute('action', new URL(f.getAttribute('action'), baseUrl).href); } catch {}
   });
-}
-
-// ── 타임아웃 래퍼 ──
-function withTimeout(promise, ms, msg) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(msg || `Timeout (${ms}ms)`)), ms);
-    promise.then(v => { clearTimeout(timer); resolve(v); }, e => { clearTimeout(timer); reject(e); });
+  // <link> (favicon 등)
+  doc.querySelectorAll('link[href]').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && !href.startsWith('data:')) {
+      try { link.setAttribute('href', new URL(href, baseUrl).href); } catch {}
+    }
+  });
+  // <img> src (아직 절대가 아닌 것들)
+  doc.querySelectorAll('img[src]').forEach(img => {
+    const src = img.getAttribute('src');
+    if (src && !src.startsWith('data:') && !src.startsWith('http')) {
+      try { img.setAttribute('src', new URL(src, baseUrl).href); } catch {}
+    }
   });
 }
 
-// ── 메인: URL을 인라인 HTML로 변환 ──
+// ── 메인: URL을 인라인 HTML로 변환 (항상 성공 전략) ──
 async function renderPage(url) {
-  // 전체 타임아웃으로 감싸서 무한 대기 방지
-  return withTimeout(_renderPageInner(url), RENDER_TIMEOUT,
-    '페이지 처리 시간 초과 (' + (RENDER_TIMEOUT / 1000) + '초). 이 사이트는 너무 무거워서 에이전트 모드로 볼 수 없습니다. 프록시 모드를 사용하세요.');
-}
-
-async function _renderPageInner(url) {
   const start = Date.now();
+  const deadline = start + TOTAL_DEADLINE;
+  let lite = false; // CSS/이미지 인라인을 건너뛴 경우
 
-  // 1. 페이지 fetch
+  // ═══ 1단계: HTML fetch (필수 — 이게 실패하면 진짜 에러) ═══
   const res = await safeFetch(url, {
     accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
     timeout: PAGE_TIMEOUT,
   });
 
-  const finalUrl = res.url || url; // 리다이렉트 후 최종 URL
+  const finalUrl = res.url || url;
   const contentType = res.headers.get('content-type') || '';
 
   // HTML이 아닌 경우 (이미지, PDF 등)
   if (!contentType.includes('html') && !contentType.includes('xhtml')) {
-    // 이미지면 직접 보여주기
     if (contentType.startsWith('image/')) {
       const buf = Buffer.from(await res.arrayBuffer());
       const dataUri = `data:${contentType.split(';')[0]};base64,${buf.toString('base64')}`;
       return {
         html: `<!DOCTYPE html><html><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#111"><img src="${dataUri}" style="max-width:100%;max-height:100vh;object-fit:contain"></body></html>`,
         title: new URL(finalUrl).pathname.split('/').pop() || 'Image',
-        url: finalUrl,
-        elapsed: Date.now() - start,
+        url: finalUrl, elapsed: Date.now() - start,
       };
     }
-    // 그 외는 다운로드 불가 안내
     return {
       html: `<!DOCTYPE html><html><body style="font-family:system-ui;padding:2rem;color:#ccc;background:#111"><h2>이 형식은 에이전트 모드에서 표시할 수 없습니다</h2><p>Content-Type: ${contentType}</p><p><a href="${finalUrl}" style="color:#7af">${finalUrl}</a></p></body></html>`,
-      title: 'Unsupported',
-      url: finalUrl,
-      elapsed: Date.now() - start,
+      title: 'Unsupported', url: finalUrl, elapsed: Date.now() - start,
     };
   }
 
@@ -229,25 +262,18 @@ async function _renderPageInner(url) {
   if (html.length > MAX_PAGE_SIZE) {
     return {
       html: `<!DOCTYPE html><html><body style="font-family:system-ui;padding:2rem;color:#ccc;background:#111"><h2>페이지가 너무 큽니다</h2><p>${(html.length / 1024 / 1024).toFixed(1)}MB — 에이전트 모드 제한 ${MAX_PAGE_SIZE / 1024 / 1024}MB</p></body></html>`,
-      title: 'Too Large',
-      url: finalUrl,
-      elapsed: Date.now() - start,
+      title: 'Too Large', url: finalUrl, elapsed: Date.now() - start,
     };
   }
 
-  // 2. DOM 파싱
+  // ═══ 2단계: DOM 파싱 + 필수 처리 (빠름, 항상 실행) ═══
   const dom = new JSDOM(html, { url: finalUrl });
   const doc = dom.window.document;
 
-  // 3. 가공
   stripScripts(doc);
-  await Promise.all([
-    inlineStylesheets(doc, finalUrl),
-    inlineImages(doc, finalUrl),
-  ]);
   absolutifyUrls(doc, finalUrl);
 
-  // 4. <base> 태그 추가 (남은 상대 경로 대비)
+  // <base> 태그 추가 (남은 상대 경로 대비)
   let base = doc.querySelector('base');
   if (!base) {
     base = doc.createElement('base');
@@ -256,7 +282,29 @@ async function _renderPageInner(url) {
   }
   base.setAttribute('href', finalUrl);
 
-  // 5. 결과 추출
+  // ═══ 3단계: CSS/이미지 인라인 (시간 예산 내에서 최선) ═══
+  const remaining = deadline - Date.now();
+  const inlineBudget = Math.min(remaining - 2000, INLINE_BUDGET); // 직렬화에 2초 여유
+
+  if (inlineBudget >= MIN_INLINE_BUDGET) {
+    // 시간 예산이 있으면 CSS와 이미지를 병렬로 인라인 시도
+    // raceDeadline: 예산 내에 끝나면 결과 사용, 아니면 무시하고 진행
+    const inlineWork = Promise.all([
+      inlineStylesheets(doc, finalUrl),
+      inlineImages(doc, finalUrl),
+    ]);
+    const result = await raceDeadline(inlineWork, inlineBudget, 'timeout');
+    if (result === 'timeout') {
+      lite = true;
+      console.log('[Agent] 인라인 예산 초과, 라이트 모드로 전송:', finalUrl);
+    }
+  } else {
+    // 시간이 거의 없으면 인라인 건너뜀
+    lite = true;
+    console.log('[Agent] 인라인 예산 부족, 라이트 모드로 전송:', finalUrl);
+  }
+
+  // ═══ 4단계: 직렬화 + 결과 반환 (항상 성공) ═══
   const title = (doc.querySelector('title')?.textContent || new URL(finalUrl).hostname).trim();
   const output = dom.serialize();
 
@@ -266,6 +314,7 @@ async function _renderPageInner(url) {
     url: finalUrl,
     elapsed: Date.now() - start,
     size: Buffer.byteLength(output, 'utf8'),
+    lite, // 클라이언트에게 라이트 모드 여부 전달
   };
 }
 
@@ -310,7 +359,6 @@ function handleAgentConnection(ws) {
     }
 
     if (msg.type === 'resolve') {
-      // 서버 IP 확인 요청 — 클라이언트가 DNS 차단 대비로 IP를 캐시하기 위함
       try {
         const dns = require('dns').promises;
         const { address } = await dns.lookup(msg.hostname || 'localhost');
@@ -331,7 +379,7 @@ function handleAgentConnection(ws) {
   });
 
   // 연결 확인 메시지
-  ws.send(JSON.stringify({ type: 'connected', ts: Date.now(), version: '1.0.0' }));
+  ws.send(JSON.stringify({ type: 'connected', ts: Date.now(), version: '1.1.0' }));
 }
 
 module.exports = { handleAgentConnection, renderPage };

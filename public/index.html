@@ -1100,6 +1100,7 @@ async function openViewerAgent(url, skipHist, t = S.act) {
 
     // 에이전트 응답의 본문이 비어 보이면(SPA 추정) 사용자에게 알린다. jsdom은 JS를 실행하지 않음.
     const looksEmpty=/<body[^>]*>\s*(<[^>]+>\s*)*<\/body>/i.test(result.html)||result.html.length<500;
+    const isLite = !!result.lite; // CSS/이미지 인라인 건너뛴 라이트 모드
 
     f.addEventListener('load', () => {
       t.ld.hidden = true;
@@ -1110,7 +1111,7 @@ async function openViewerAgent(url, skipHist, t = S.act) {
       try {
         const doc = f.contentDocument;
         if (doc) {
-          injectAgentNotice(doc, t, url, looksEmpty);
+          injectAgentNotice(doc, t, url, looksEmpty, isLite);
           doc.addEventListener('click', (ev) => {
             const a = ev.target.closest('a[href]');
             if (!a) return;
@@ -1148,7 +1149,7 @@ async function openViewerAgent(url, skipHist, t = S.act) {
 }
 
 // 에이전트 렌더링 결과 iframe의 맨 위에 안내 띠를 추가한다. (iframe은 same-origin이라 DOM 수정 가능)
-function injectAgentNotice(doc, t, url, looksEmpty) {
+function injectAgentNotice(doc, t, url, looksEmpty, isLite) {
   if (!doc.body || doc.getElementById('__qsAgentBar')) return;
   const bar = doc.createElement('div');
   bar.id = '__qsAgentBar';
@@ -1156,6 +1157,8 @@ function injectAgentNotice(doc, t, url, looksEmpty) {
   const label=doc.createElement('span');label.style.flex='1';
   label.textContent=looksEmpty
     ?'⚡ 에이전트 모드 — 이 사이트는 JS로 그려지는 것 같아 내용이 비어 보일 수 있습니다. 프록시로 열어 보세요.'
+    :isLite
+    ?'⚡ 에이전트 라이트 — 시간 제한으로 CSS/이미지가 안 보일 수 있지만 링크는 동작합니다.'
     :'⚡ 에이전트 모드 — JS 실행 안 됨, 영상·로그인·버튼 상호작용 불가. 링크만 동작합니다.';
   const toProxy=doc.createElement('button');
   toProxy.type='button';toProxy.textContent='프록시로 열기';
