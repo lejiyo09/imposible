@@ -183,6 +183,12 @@ main{flex:1;display:flex;flex-direction:column;width:100%}
 /* ---- 뷰어 ---- */
 #viewer{flex:1;display:flex;flex-direction:column;padding:2px 16px 16px;min-height:0}
 .vbtn{display:none;min-height:36px;padding:.25rem;min-width:36px}
+.vbtn.vbtn-txt{min-width:52px;font-size:.78rem;font-weight:600;padding:.25rem .4rem}
+#v-zoom-menu{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);box-shadow:var(--shadow);padding:.3rem;display:none;flex-direction:column;gap:.2rem;z-index:40;min-width:160px}
+#v-zoom-menu.show{display:flex}
+#v-zoom-menu .row{display:flex;align-items:center;gap:.3rem;justify-content:space-between}
+#v-zoom-menu button{min-height:30px;padding:.25rem .55rem;font-size:.82rem}
+#v-zoom-menu .zv{flex:1;text-align:center;font-weight:600}
 .vbtn:disabled{opacity:.35;cursor:not-allowed}
 #addr-form.vw .vbtn{display:inline-flex}
 #addr-form.vw #addr-go{display:none}
@@ -310,6 +316,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
     <button type="button" id="v-back" class="vbtn" title="뒤로 (Alt+←)" disabled><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg></button>
     <button type="button" id="v-fwd" class="vbtn" title="앞으로 (Alt+→)" disabled><svg class="ic" aria-hidden="true"><use href="#i-fwd"/></svg></button>
     <button type="button" id="v-ref" class="vbtn" title="새로고침 (F5)"><svg class="ic" aria-hidden="true"><use href="#i-ref"/></svg></button>
+    <button type="button" id="v-zoom" class="vbtn vbtn-txt" title="확대·축소 (Ctrl +/-/0)" aria-label="확대 축소">100%</button>
     <div class="fld">
       <svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg>
       <label for="addr-in" class="sr">웹 주소</label>
@@ -321,6 +328,14 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
     <button type="button" id="v-tab" class="vbtn" title="Chrome 새 탭에서 열기 (Chrome 기록에 남음)"><svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></button>
     <button type="button" id="v-close" class="vbtn" title="탭 닫기 (Alt+W)"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
   </form>
+  <div id="v-zoom-menu" role="dialog" aria-label="확대 축소">
+    <div class="row">
+      <button type="button" id="zm-out" title="축소 (Ctrl+-)" aria-label="축소">−</button>
+      <span class="zv" id="zm-val">100%</span>
+      <button type="button" id="zm-in" title="확대 (Ctrl++)" aria-label="확대">+</button>
+    </div>
+    <button type="button" id="zm-reset">기본 (100%)</button>
+  </div>
   <p class="msg" id="addr-msg" aria-live="polite"></p>
 
   <main>
@@ -922,7 +937,7 @@ function newTab(url,{activate=true,after=false}={}){
   const pane=document.createElement('div');pane.className='tabpane';pane.hidden=true;
   const ld=document.createElement('div');ld.className='v-load';ld.setAttribute('role','status');ld.setAttribute('aria-live','polite');ld.hidden=true;
   pane.appendChild(ld);$('fwrap').appendChild(pane);
-  const t={id:++S.tabSeq,pane,ld,frame:null,curUrl:null,loadUrl:null,hist:[],histIdx:-1,retries:0,frameTm:null,syncTm:null,title:'',loading:false};
+  const t={id:++S.tabSeq,pane,ld,frame:null,curUrl:null,loadUrl:null,hist:[],histIdx:-1,retries:0,frameTm:null,syncTm:null,title:'',loading:false,zoom:1};
   const at=after&&S.act&&S.tabs.includes(S.act)?S.tabs.indexOf(S.act)+1:S.tabs.length;
   S.tabs.splice(at,0,t);
   if(activate)activateTab(t);else renderTabs();
@@ -966,8 +981,8 @@ function openIn(t,url){
 function activateTab(t){
   S.act=t;
   S.tabs.forEach(x=>{x.pane.hidden=x!==t});
-  setMsg('addr-msg','');
-  showView();updNav();renderTabs();
+  setMsg('addr-msg','');closeZoomMenu();
+  showView();updNav();renderTabs();applyZoom(t);
 }
 
 // 현재 탭에 사이트가 있으면 뷰어, 없으면(새 탭) 대시보드를 보여 준다.
@@ -1117,6 +1132,7 @@ async function openViewerAgent(url, skipHist, t = S.act) {
     t.pane.appendChild(f);
     t.frame = f;
     t.title = result.title || '';
+    applyZoom(t);
 
     // 주소바 업데이트
     if (result.url && result.url !== url) {
@@ -1359,7 +1375,7 @@ function attempt(t,url){
   f.addEventListener('load',()=>syncAddr(t));
 
   f.src=url;
-  t.pane.appendChild(f);t.frame=f;
+  t.pane.appendChild(f);t.frame=f;applyZoom(t);
   clearInterval(t.syncTm);t.syncTm=setInterval(()=>syncAddr(t),700);
 
   clearTimeout(t.frameTm);
@@ -1431,9 +1447,38 @@ function navTo(raw,t=S.act){
 }
 
 // 앱 단축키. 사이트 화면 안(inFrame)에서 눌러도 동작한다. 처리했으면 true.
+/* =========== 확대·축소 =========== */
+const ZOOM_STEPS=[0.25,0.33,0.5,0.67,0.75,0.8,0.9,1,1.1,1.25,1.5,1.75,2,2.5,3];
+function tabZoom(t){return (t&&t.zoom)||1}
+function applyZoom(t){
+  const z=tabZoom(t);
+  if(t.frame)t.frame.style.zoom=String(z);
+  if(isAct(t)){const pct=Math.round(z*100)+'%';$('v-zoom').textContent=pct;$('zm-val').textContent=pct}
+}
+function setZoom(t,z){
+  z=Math.max(0.25,Math.min(3,z));
+  t.zoom=z;applyZoom(t);
+}
+function zoomStep(t,dir){
+  const z=tabZoom(t);
+  // 현재 배율과 가장 가까운 step 다음(또는 이전) 단계로 이동
+  const sorted=ZOOM_STEPS.slice();
+  if(dir>0){const next=sorted.find(s=>s>z+0.001);if(next!=null)setZoom(t,next)}
+  else{const prev=[...sorted].reverse().find(s=>s<z-0.001);if(prev!=null)setZoom(t,prev)}
+}
+function toggleZoomMenu(){
+  const m=$('v-zoom-menu'),btn=$('v-zoom');
+  if(m.classList.contains('show')){m.classList.remove('show');return}
+  const r=btn.getBoundingClientRect();
+  m.style.top=(r.bottom+4)+'px';m.style.left=Math.max(8,Math.min(window.innerWidth-180,r.left-50))+'px';
+  m.classList.add('show');
+}
+function closeZoomMenu(){$('v-zoom-menu').classList.remove('show')}
+
 function handleKey(ev,inFrame){
   if(!S.unlocked)return false;
   const alt=ev.altKey&&!ev.ctrlKey&&!ev.metaKey,k=ev.key;
+  const ctrl=(ev.ctrlKey||ev.metaKey)&&!ev.altKey;
   if(alt&&(k==='l'||k==='L')){lock();return true}
   if(alt&&(k==='t'||k==='T')){if(newTab())$('addr-in').focus();return true}
   if(alt&&(k==='w'||k==='W')){if(S.act)closeTab(S.act);return true}
@@ -1442,6 +1487,10 @@ function handleKey(ev,inFrame){
   if(alt&&k==='ArrowLeft'){goBack();return true}
   if(alt&&k==='ArrowRight'){goFwd();return true}
   if(k==='F5'&&!ev.ctrlKey){doRefresh();return true}
+  // Ctrl+/-/0 확대·축소 (Chrome과 동일 단축키)
+  if(ctrl&&(k==='='||k==='+')){if(S.act)zoomStep(S.act,1);return true}
+  if(ctrl&&k==='-'){if(S.act)zoomStep(S.act,-1);return true}
+  if(ctrl&&k==='0'){if(S.act)setZoom(S.act,1);return true}
   if(!inFrame&&k==='/'){
     const tag=(ev.target&&ev.target.tagName)||'';
     if(tag!=='INPUT'&&tag!=='TEXTAREA'&&tag!=='SELECT'&&!document.querySelector('dialog[open]')){$('addr-in').focus();$('addr-in').select();return true}
@@ -1684,6 +1733,13 @@ function bind(){
   $('btn-set').addEventListener('click',openSet);
 
   $('v-close').addEventListener('click',()=>{if(S.act)closeTab(S.act)});
+  $('v-zoom').addEventListener('click',toggleZoomMenu);
+  $('zm-in').addEventListener('click',()=>{if(S.act)zoomStep(S.act,1)});
+  $('zm-out').addEventListener('click',()=>{if(S.act)zoomStep(S.act,-1)});
+  $('zm-reset').addEventListener('click',()=>{if(S.act)setZoom(S.act,1);closeZoomMenu()});
+  document.addEventListener('click',ev=>{if(!$('v-zoom-menu').contains(ev.target)&&ev.target!==$('v-zoom'))closeZoomMenu()},true);
+  // Ctrl+휠로도 확대·축소 — 일반 브라우저 동작과 동일
+  $('fwrap').addEventListener('wheel',ev=>{if((ev.ctrlKey||ev.metaKey)&&S.act){ev.preventDefault();zoomStep(S.act,ev.deltaY<0?1:-1)}},{passive:false});
   $('v-back').addEventListener('click',goBack);
   $('v-fwd').addEventListener('click',goFwd);
   $('v-ref').addEventListener('click',doRefresh);

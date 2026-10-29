@@ -1,4 +1,4 @@
-const CACHE='qs-shell-v5';
+const CACHE='qs-shell-v6';
 const SHELL=['/','/index.html','/manifest.webmanifest','/icons/icon-32.png','/icons/icon-180.png','/icons/icon-192.png','/icons/icon-512.png','/icons/icon-maskable-512.png'];
 
 self.addEventListener('install',e=>{
