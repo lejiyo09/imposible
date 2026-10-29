@@ -12,10 +12,13 @@ const { URL } = require('url');
 // ── 상수 ──
 const MAX_RESOURCE_SIZE = 2 * 1024 * 1024;   // 개별 리소스 최대 2MB
 const MAX_PAGE_SIZE = 8 * 1024 * 1024;        // 전체 페이지 최대 8MB
-const FETCH_TIMEOUT = 15000;                   // 리소스 fetch 타임아웃 15초
-const PAGE_TIMEOUT = 25000;                    // 전체 페이지 처리 타임아웃 25초
+const FETCH_TIMEOUT = 8000;                    // 리소스 fetch 타임아웃 8초 (기존 15초→8초)
+const PAGE_TIMEOUT = 20000;                    // HTML fetch 타임아웃 20초
+const RENDER_TIMEOUT = 25000;                  // renderPage 전체 타임아웃 25초
 const HEARTBEAT_INTERVAL = 25000;              // 하트비트 간격 25초
-const MAX_INLINE_IMAGES = 30;                  // 인라인할 이미지 최대 개수
+const MAX_INLINE_IMAGES = 20;                  // 인라인할 이미지 최대 개수
+const MAX_INLINE_CSS = 8;                      // 인라인할 CSS 최대 개수
+const MAX_CSS_URL_REFS = 15;                   // CSS 내 url() 인라인 최대 개수
 
 // ── MIME 타입 매핑 ──
 const MIME_EXT = {
@@ -76,10 +79,10 @@ async function toDataUri(url) {
   }
 }
 
-// ── CSS 내 url() 참조를 인라인 ──
+// ── CSS 내 url() 참조를 인라인 (개수 제한) ──
 async function inlineCssUrls(css, baseUrl) {
   const urlPattern = /url\(\s*['"]?([^'")]+)['"]?\s*\)/g;
-  const matches = [...css.matchAll(urlPattern)];
+  const matches = [...css.matchAll(urlPattern)].slice(0, MAX_CSS_URL_REFS);
   const replacements = new Map();
 
   await Promise.all(matches.map(async (m) => {
@@ -99,12 +102,17 @@ async function inlineCssUrls(css, baseUrl) {
   return result;
 }
 
-// ── 외부 CSS를 인라인 <style>로 변환 ──
+// ── 외부 CSS를 인라인 <style>로 변환 (병렬 + 개수 제한) ──
 async function inlineStylesheets(doc, baseUrl) {
-  const links = [...doc.querySelectorAll('link[rel="stylesheet"], link[rel="preload"][as="style"]')];
-  for (const link of links) {
+  const links = [...doc.querySelectorAll('link[rel="stylesheet"], link[rel="preload"][as="style"]')].slice(0, MAX_INLINE_CSS);
+  // 남은 CSS link는 제거 (제한 초과분)
+  doc.querySelectorAll('link[rel="stylesheet"], link[rel="preload"][as="style"]').forEach((el, i) => {
+    if (i >= MAX_INLINE_CSS) el.remove();
+  });
+
+  await Promise.all(links.map(async (link) => {
     const href = link.getAttribute('href');
-    if (!href) continue;
+    if (!href) { link.remove(); return; }
     try {
       const abs = new URL(href, baseUrl).href;
       const res = await safeFetch(abs, { accept: 'text/css' });
@@ -116,7 +124,7 @@ async function inlineStylesheets(doc, baseUrl) {
     } catch {
       link.remove(); // 실패한 CSS는 제거
     }
-  }
+  }));
 }
 
 // ── 이미지를 data URI로 인라인 ──
@@ -168,8 +176,22 @@ function absolutifyUrls(doc, baseUrl) {
   });
 }
 
+// ── 타임아웃 래퍼 ──
+function withTimeout(promise, ms, msg) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(msg || `Timeout (${ms}ms)`)), ms);
+    promise.then(v => { clearTimeout(timer); resolve(v); }, e => { clearTimeout(timer); reject(e); });
+  });
+}
+
 // ── 메인: URL을 인라인 HTML로 변환 ──
 async function renderPage(url) {
+  // 전체 타임아웃으로 감싸서 무한 대기 방지
+  return withTimeout(_renderPageInner(url), RENDER_TIMEOUT,
+    '페이지 처리 시간 초과 (' + (RENDER_TIMEOUT / 1000) + '초). 이 사이트는 너무 무거워서 에이전트 모드로 볼 수 없습니다. 프록시 모드를 사용하세요.');
+}
+
+async function _renderPageInner(url) {
   const start = Date.now();
 
   // 1. 페이지 fetch
@@ -278,9 +300,10 @@ function handleAgentConnection(ws) {
         const result = await renderPage(msg.url);
         ws.send(JSON.stringify({ type: 'page', id, ...result }));
       } catch (err) {
+        const message = err.message || 'Fetch failed';
+        console.error('[Agent] renderPage error for', msg.url, ':', message);
         ws.send(JSON.stringify({
-          type: 'error', id, url: msg.url,
-          message: err.message || 'Fetch failed',
+          type: 'error', id, url: msg.url, message,
         }));
       }
       return;
