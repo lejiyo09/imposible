@@ -299,7 +299,7 @@ pre.rpt{white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1p
     <div id="tabbar" class="tabbar" role="tablist" aria-label="탭"></div>
     <button type="button" id="tab-new" class="tab-new" title="새 탭 (Alt+T)" aria-label="새 탭"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
     <div class="acts">
-      <span id="conn-status" class="chip chip-ok" title="연결 상태" style="font-size:.72rem;cursor:help">● 연결됨</span>
+      <button type="button" id="conn-status" class="chip chip-ok" title="클릭해서 프록시/에이전트 모드 전환 — 자세히는 호버하세요" style="font-size:.72rem;cursor:pointer;border:1px solid currentColor;background:transparent">● 프록시</button>
       <button type="button" id="btn-home" title="홈"><svg class="ic" aria-hidden="true"><use href="#i-home"/></svg><span class="bl">홈</span></button>
       <button type="button" id="btn-lock" title="잠금 (Alt+L)"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><span class="bl">잠금</span></button>
       <button type="button" id="btn-set" title="설정"><svg class="ic" aria-hidden="true"><use href="#i-gear"/></svg><span class="bl">설정</span></button>
@@ -930,8 +930,36 @@ function newTab(url,{activate=true,after=false}={}){
   return t;
 }
 
+// Agent 모드로 열면 거의 확실히 깨지는 사이트. 영상 스트리밍은 agent.js가 스크립트를 제거해서 불가.
+const WISP_ONLY=/^(?:[^.]+\.)*(youtube\.com|youtu\.be|chzzk\.naver\.com|sooplive\.co\.kr|afreecatv\.com|twitch\.tv|netflix\.com|disneyplus\.com|tving\.com|wavve\.com|coupangplay\.com|watcha\.com|discord\.com|discord\.gg|meet\.google\.com|zoom\.us|whereby\.com)$/i;
+function wispOnly(url){try{return WISP_ONLY.test(new URL(url).hostname)}catch(e){return false}}
+
+// 상단바 모드 칩 — 클릭하면 현재 탭을 반대 모드로 다시 연다. 영상 사이트는 Agent 모드 자체를 거부.
+function renderModeChip(){
+  const el=$('conn-status');if(!el)return;
+  const isAg=Agent.mode==='agent';
+  el.textContent=(Agent.connected?'● ':'○ ')+(isAg?'에이전트':'프록시');
+  el.className='chip '+(Agent.connected?(isAg?'chip-w':'chip-ok'):'chip-w');
+  const u=cur();
+  const tipLines=[isAg?'에이전트 모드: 서버가 페이지를 가져와 보여줍니다. JS 안 돌아감, 영상·로그인·실시간 사이트 불가.':'프록시 모드: 사이트가 iframe 안에서 그대로 실행됩니다. 영상·로그인 가능.',
+    Agent.connected?'에이전트 WebSocket: 연결됨 — DNS 차단되어도 유지됩니다.':'에이전트 WebSocket: 끊김 — 재연결 시도 중.',
+    u?('클릭하면 '+(isAg?'프록시':'에이전트')+' 모드로 이 페이지를 다시 엽니다.'):'클릭하면 다음 페이지부터 반대 모드로 열립니다.'];
+  el.title=tipLines.join('\n');
+}
+function toggleMode(){
+  if(Agent.mode==='agent'){Agent.mode='proxy';toast('프록시 모드 — 사이트가 그대로 실행됩니다.')}
+  else{
+    if(!Agent.connected){toast('에이전트 WebSocket이 연결되어 있지 않아 전환할 수 없습니다.');return}
+    Agent.mode='agent';toast('에이전트 모드 — 서버가 가져와 보여줍니다. 영상·로그인 불가.')
+  }
+  renderModeChip();
+  const t=S.act,u=t&&t.curUrl;
+  if(u)openIn(t,u); // 현재 탭을 반대 모드로 다시 로드
+}
+
 function openIn(t,url){
-  if(Agent.mode==='agent'&&Agent.connected)openViewerAgent(url,false,t);
+  // 영상·실시간 사이트는 Agent 모드 토글 상태와 무관하게 항상 Wisp 프록시로 (문서 한계 §2)
+  if(Agent.mode==='agent'&&Agent.connected&&!wispOnly(url))openViewerAgent(url,false,t);
   else openViewer(url,false,t);
 }
 
@@ -1055,15 +1083,19 @@ async function openViewerAgent(url, skipHist, t = S.act) {
     f.setAttribute('sandbox', 'allow-scripts allow-same-origin');
     f.setAttribute('referrerpolicy', 'no-referrer');
 
+    // 에이전트 응답의 본문이 비어 보이면(SPA 추정) 사용자에게 알린다. jsdom은 JS를 실행하지 않음.
+    const looksEmpty=/<body[^>]*>\s*(<[^>]+>\s*)*<\/body>/i.test(result.html)||result.html.length<500;
+
     f.addEventListener('load', () => {
       t.ld.hidden = true;
       t.loading = false;
       renderTabs();
       URL.revokeObjectURL(blobUrl);
-      // 에이전트 렌더링된 페이지 내 링크 클릭을 가로채기
+      // 에이전트 렌더링된 페이지 내 링크 클릭을 가로채기 + 상단 안내 띠 삽입
       try {
         const doc = f.contentDocument;
         if (doc) {
+          injectAgentNotice(doc, t, url, looksEmpty);
           doc.addEventListener('click', (ev) => {
             const a = ev.target.closest('a[href]');
             if (!a) return;
@@ -1097,6 +1129,28 @@ async function openViewerAgent(url, skipHist, t = S.act) {
     if (t.curUrl !== url) return;
     showAgentError(t, url, err.message);
   }
+}
+
+// 에이전트 렌더링 결과 iframe의 맨 위에 안내 띠를 추가한다. (iframe은 same-origin이라 DOM 수정 가능)
+function injectAgentNotice(doc, t, url, looksEmpty) {
+  if (!doc.body || doc.getElementById('__qsAgentBar')) return;
+  const bar = doc.createElement('div');
+  bar.id = '__qsAgentBar';
+  bar.style.cssText='position:sticky;top:0;left:0;right:0;z-index:2147483647;padding:.4rem .75rem;background:#2a2a3a;color:#fff;font:600 .82rem system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;display:flex;gap:.6rem;align-items:center;border-bottom:1px solid #444';
+  const label=doc.createElement('span');label.style.flex='1';
+  label.textContent=looksEmpty
+    ?'⚡ 에이전트 모드 — 이 사이트는 JS로 그려지는 것 같아 내용이 비어 보일 수 있습니다. 프록시로 열어 보세요.'
+    :'⚡ 에이전트 모드 — JS 실행 안 됨, 영상·로그인·버튼 상호작용 불가. 링크만 동작합니다.';
+  const toProxy=doc.createElement('button');
+  toProxy.type='button';toProxy.textContent='프록시로 열기';
+  toProxy.style.cssText='padding:.2rem .55rem;border-radius:6px;border:1px solid #fff;background:#fff;color:#2a2a3a;font-weight:600;cursor:pointer';
+  toProxy.addEventListener('click',()=>{Agent.mode='proxy';renderModeChip();openViewer(url,false,t)});
+  const close=doc.createElement('button');
+  close.type='button';close.textContent='×';close.title='안내 닫기';
+  close.style.cssText='padding:.1rem .4rem;border-radius:6px;border:1px solid #666;background:transparent;color:#fff;cursor:pointer';
+  close.addEventListener('click',()=>bar.remove());
+  bar.append(label,toProxy,close);
+  doc.body.insertBefore(bar, doc.body.firstChild);
 }
 
 function showAgentError(t, url, message) {
@@ -1618,6 +1672,14 @@ function bind(){
   $('addr-form').addEventListener('submit',ev=>{ev.preventDefault();navTo($('addr-in').value)});
   $('btn-home').addEventListener('click',goHome);
   $('tab-new').addEventListener('click',()=>{if(newTab())$('addr-in').focus()});
+  $('conn-status').addEventListener('click',toggleMode);
+  // Agent.updateStatus는 수정 금지라, 상태(connected/mode) 변화를 폴링해 칩 UI만 반영한다.
+  let lastKey='';
+  setInterval(()=>{
+    const k=Agent.mode+'/'+Agent.connected+'/'+(cur()||'');
+    if(k!==lastKey){lastKey=k;renderModeChip()}
+  },800);
+  renderModeChip();
   $('btn-lock').addEventListener('click',lock);
   $('btn-set').addEventListener('click',openSet);
 
