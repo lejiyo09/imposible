@@ -61,17 +61,40 @@ const server = app.listen(process.env.PORT || 3000, () => {
   console.log('Geo-Zebra on port ' + server.address().port);
 });
 
-// ── 잠들기 방지 self-ping ──
+// ── 잠들기 방지 self-ping (한국 시간 21:20~24:00에만) ──
 // Render 무료 플랜은 15분간 외부 요청이 없으면 다운된다. localhost 호출은 외부 트래픽으로
 // 치지 않으므로 서버의 공개 URL(RENDER_EXTERNAL_URL)을 주기적으로 호출해 깨어 있게 한다.
+// 학교 DNS 차단이 걸리는 밤 시간대에만 깨워 두어 무료 사용 시간을 아낀다.
 // RENDER_EXTERNAL_URL은 Render가 자동 주입하므로, 로컬 개발에서는 self-ping이 켜지지 않는다.
-// 주의: 항상 깨어 있으면 무료 인스턴스 시간(월 약 750시간)을 거의 다 쓴다.
 const SELF_URL = process.env.RENDER_EXTERNAL_URL || process.env.SELF_PING_URL;
 const KEEP_AWAKE = process.env.KEEP_AWAKE !== 'false'; // 끄려면 KEEP_AWAKE=false
+// 활성 시간대(한국 시간, 분 단위). 기본 21:20(=1280)~24:00(=1440). env로 조정 가능.
+const AWAKE_START = parseInt(process.env.KEEP_AWAKE_START || '1280', 10); // 21*60+20
+const AWAKE_END = parseInt(process.env.KEEP_AWAKE_END || '1440', 10);     // 24*60
+
+// 서버 타임존과 무관하게 한국 시간의 '자정 이후 분'을 구한다.
+function koreaMinutes() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date());
+  let h = +parts.find((p) => p.type === 'hour').value;
+  const m = +parts.find((p) => p.type === 'minute').value;
+  if (h === 24) h = 0; // 일부 환경에서 자정을 24로 반환하는 경우 보정
+  return h * 60 + m;
+}
+function inAwakeWindow() {
+  const now = koreaMinutes();
+  // [start, end). end가 start보다 작으면 자정을 넘는 구간으로 간주
+  return AWAKE_START <= AWAKE_END
+    ? (now >= AWAKE_START && now < AWAKE_END)
+    : (now >= AWAKE_START || now < AWAKE_END);
+}
+
 if (SELF_URL && KEEP_AWAKE) {
   const pingUrl = SELF_URL.replace(/\/+$/, '') + '/healthz';
-  const PING_INTERVAL = 10 * 60 * 1000; // 10분 (15분 다운 전에 깨움)
+  const CHECK_INTERVAL = 5 * 60 * 1000; // 5분마다 시간대 확인 후, 창 안이면 ping
   setInterval(async () => {
+    if (!inAwakeWindow()) return;
     try {
       const ac = new AbortController();
       const t = setTimeout(() => ac.abort(), 20000);
@@ -80,8 +103,9 @@ if (SELF_URL && KEEP_AWAKE) {
     } catch (e) {
       console.error('[keep-awake] ping failed:', e && e.message);
     }
-  }, PING_INTERVAL).unref(); // unref: 이 타이머가 프로세스 종료를 막지 않게
-  console.log('[keep-awake] self-ping enabled →', pingUrl, '(10분 간격)');
+  }, CHECK_INTERVAL).unref();
+  const fmt = (m) => String((m / 60) | 0).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  console.log('[keep-awake] self-ping →', pingUrl, '(한국 시간', fmt(AWAKE_START), '~', fmt(AWAKE_END) + ')');
 }
 
 // ── WebSocket 업그레이드 라우팅 ──
