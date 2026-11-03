@@ -85,7 +85,8 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;strok
 .chip-ok{color:var(--ok);border-color:var(--ok)}.chip-w{color:var(--warn);border-color:var(--warn)}
 
 /* ---- 잠금 화면 ---- */
-#lock{min-height:100%;display:grid;place-items:center;padding:24px 16px}
+/* 잠금 화면은 불투명 전체 오버레이. 뒤의 앱(실행 중인 사이트)을 가리되 계속 돌아가게 둔다. */
+#lock{position:fixed;inset:0;z-index:10000;background:var(--bg);display:grid;place-items:center;padding:24px 16px;overflow:auto}
 .lk-box{width:100%;max-width:400px}
 .brand{display:flex;align-items:center;gap:.55rem}
 .brand .logo{width:32px;height:32px;flex:none}
@@ -596,7 +597,10 @@ function fmtWait(ms){const s=Math.ceil(ms/1000);if(s<60)return s+'초';const m=M
 
 /* =========== 잠금 화면 =========== */
 function showLock(mode){
-  $('app').hidden=true;$('lock').hidden=false;
+  // 앱은 숨기지 않는다(뒤에서 사이트가 계속 돌아가야 함). 불투명 오버레이로 가리고,
+  // inert로 가려진 앱에 키보드 포커스·클릭이 들어가지 못하게 막는다(미디어·연결은 계속 유지됨).
+  $('lock').hidden=false;
+  try{ $('app').inert=true; }catch(e){}
   $('f-unlock').hidden=mode!=='unlock';$('unavail').hidden=mode!=='unavail';
   $('forgot-btn').hidden=S.mode!=='secure';
   if(mode==='unlock'){
@@ -637,16 +641,20 @@ function busy(on,id,txt){S.busy=on;$(id).disabled=on;$(id).textContent=txt}
 function enter(){
   S.unlocked=true;clearInterval(S.lockTm);S.lockTm=null;
   $('lock').hidden=true;$('app').hidden=false;
+  try{ $('app').inert=false; }catch(e){}
   renderBanner();renderChips();renderItems();
   if(!S.tabs.length)newTab();else activateTab(S.act||S.tabs[0]);
-  markAct();startIdle();$('addr-in').focus();
+  markAct();startIdle();
+  if(!cur())$('addr-in').focus();
 }
 
 function lock(){
   document.querySelectorAll('dialog[open]').forEach(d=>d.close());
-  closeAllTabs();
+  // 탭·사이트는 닫지 않고 그대로 둔다. 화면만 오버레이로 가린다.
+  // (음악 재생, 디스코드 연결, 다운로드 등이 잠금 중에도 계속 유지됨)
   clr(['it-name','it-url']);
   $('chk-rpt').hidden=true;$('chk-rpt').textContent='';
+  // 복호화된 즐겨찾기만 메모리·대시보드에서 비운다(가려진 상태에서 노출 방지). 열린 탭은 유지.
   S.items=[];S.key=null;S.unlocked=false;
   while($('sc-tiles').firstChild)$('sc-tiles').removeChild($('sc-tiles').firstChild);
   while($('bm-list').firstChild)$('bm-list').removeChild($('bm-list').firstChild);
