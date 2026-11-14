@@ -25,6 +25,7 @@ let context = null;
 const tabs = new Map();      // id → { id, page, cdp, streaming }
 let nextTabId = 0;
 const viewers = new Set();   // 각 ws 에 ws.visible(Set<tabId>) 를 둔다
+let idleTimer = null;        // 접속자 없을 때 브라우저 종료 예약
 
 function broadcast(obj) {
   const s = JSON.stringify(obj);
@@ -117,6 +118,21 @@ async function getContext() {
   return context;
 }
 
+// 접속자가 모두 나가면 잠시 후 Chrome 종료 (로그인은 프로필에 저장돼 유지)
+function scheduleShutdown() {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(async () => {
+    idleTimer = null;
+    if (viewers.size > 0 || !context) return;
+    console.log('[remote] 접속자 없음 — Chrome 종료 (대기만 유지)');
+    try { await context.close(); } catch (_) {}
+    context = null;
+    tabs.clear();
+    nextTabId = 0;
+    if (ffmpeg) { try { ffmpeg.kill(); } catch (_) {} ffmpeg = null; }
+  }, 30000); // 30초 유예 (끊겼다 바로 재접속하는 경우 대비)
+}
+
 // ── 오디오 (전체 소리 하나로 중계; 탭별 분리는 아님) ──
 const audioClients = new Set();
 let ffmpeg = null;
@@ -150,6 +166,7 @@ server.on('upgrade', (req, socket, head) => {
 
 wss.on('connection', async (ws) => {
   console.log('[remote] 뷰어 연결됨');
+  if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; } // 종료 예약 취소
   viewers.add(ws);
   ws.visible = new Set();
   let lastCursorCheck = 0;
@@ -233,6 +250,7 @@ wss.on('connection', async (ws) => {
     viewers.delete(ws);
     recomputeStreaming(); // 아무도 안 보는 탭은 스트리밍 중지
     console.log('[remote] 뷰어 연결 해제');
+    if (viewers.size === 0) scheduleShutdown(); // 다 나가면 Chrome 종료 예약
   });
 });
 
