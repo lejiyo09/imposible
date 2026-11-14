@@ -19,10 +19,23 @@ let browser;
 async function getBrowser() {
   if (!browser || !browser.isConnected()) {
     console.log('[remote] Chromium 실행...');
-    browser = await chromium.launch({
+    const opts = {
       headless: true,
-      args: ['--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage'],
-    });
+      args: [
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        // 자동화 탐지 신호 제거 (navigator.webdriver 등) — 구글 등의 봇 차단 완화
+        '--disable-blink-features=AutomationControlled',
+      ],
+    };
+    try {
+      // 번들 Chromium보다 실제 설치된 Chrome이 덜 탐지됨
+      browser = await chromium.launch({ ...opts, channel: 'chrome' });
+      console.log('[remote] 실제 Chrome으로 실행');
+    } catch (_) {
+      browser = await chromium.launch(opts); // Chrome 없으면 번들 Chromium으로 폴백
+      console.log('[remote] 번들 Chromium으로 실행');
+    }
   }
   return browser;
 }
@@ -50,9 +63,15 @@ wss.on('connection', async (ws) => {
     // 탭(세션)별로 쿠키/로그인을 유지하려면 storageState 경로를 지정하면 됨 (MVP에선 생략)
     context = await br.newContext({
       viewport: VIEWPORT,
+      locale: 'ko-KR',
+      timezoneId: 'Asia/Seoul',
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
         '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    });
+    // 자동화 탐지 신호(navigator.webdriver) 숨기기
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     });
     page = await context.newPage();
     cdp = await context.newCDPSession(page);
