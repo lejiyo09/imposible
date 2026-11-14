@@ -187,6 +187,7 @@ server.on('upgrade', (req, socket, head) => {
 wss.on('connection', async (ws) => {
   console.log('[remote] 뷰어 연결됨');
   viewers.add(ws);
+  let lastCursorCheck = 0;
   try {
     await getContext();
     if (tabs.size === 0) {
@@ -215,7 +216,22 @@ wss.on('connection', async (ws) => {
       switch (msg.type) {
         // ── 입력 (활성 탭에 적용) ──
         case 'move':
-          if (a) await a.page.mouse.move(msg.x, msg.y);
+          if (a) {
+            await a.page.mouse.move(msg.x, msg.y);
+            // 실제 페이지 커서 모양 조회해서 전달 (throttle)
+            const t = Date.now();
+            if (t - lastCursorCheck > 120) {
+              lastCursorCheck = t;
+              try {
+                let cur = await a.page.evaluate(({ x, y }) => {
+                  const el = document.elementFromPoint(x, y);
+                  return el ? getComputedStyle(el).cursor : 'default';
+                }, { x: msg.x, y: msg.y });
+                if (!cur || cur.includes('url(')) cur = 'default';
+                if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'cursor', cursor: cur }));
+              } catch (_) {}
+            }
+          }
           break;
         case 'down':
           if (a) { await a.page.mouse.move(msg.x, msg.y); await a.page.mouse.down({ button: msg.button || 'left' }); }

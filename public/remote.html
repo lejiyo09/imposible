@@ -109,6 +109,8 @@ function connect() {
       img.src = 'data:image/jpeg;base64,' + msg.data;
     } else if (msg.type === 'tabs') {
       renderTabs(msg.tabs, msg.activeId);
+    } else if (msg.type === 'cursor') {
+      canvas.style.cursor = msg.cursor || 'default';
     }
   };
   ws.onclose = () => {
@@ -219,7 +221,8 @@ function startAudio() {
     const src = audioCtx.createBufferSource();
     src.buffer = buf; src.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
-    if (nextTime < now) nextTime = now + 0.08;
+    if (nextTime < now) nextTime = now + 0.05;             // 끊김(언더런) → 살짝 앞서 재생
+    else if (nextTime - now > 0.30) nextTime = now + 0.05; // 버퍼 과다(화면보다 밀림) → 밀린 소리 버리고 따라잡기
     src.start(nextTime);
     nextTime += buf.duration;
   };
