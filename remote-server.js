@@ -90,8 +90,7 @@ async function attachPage(page) {
   broadcast({ type: 'opened', id }); // 클라이언트가 빈 칸에 자동 배치 (팝업 보이게)
 }
 
-async function getContext() {
-  if (context) return context;
+async function launchCtx() {
   const opts = {
     headless: false,
     viewport: VIEWPORT,
@@ -100,22 +99,59 @@ async function getContext() {
     userAgent: UA,
     args: ['--disable-gpu', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled'],
   };
-  try {
-    context = await chromium.launchPersistentContext(USER_DATA_DIR, { ...opts, channel: 'chrome' });
-    console.log('[remote] 실제 Chrome + 영구 프로필로 실행');
-  } catch (_) {
-    context = await chromium.launchPersistentContext(USER_DATA_DIR, opts);
-    console.log('[remote] 번들 Chromium + 영구 프로필로 실행');
+  try { return await chromium.launchPersistentContext(USER_DATA_DIR, { ...opts, channel: 'chrome' }); }
+  catch (_) { return await chromium.launchPersistentContext(USER_DATA_DIR, opts); }
+}
+
+let contextPromise = null;
+async function getContext() {
+  if (context) return context;
+  if (contextPromise) return contextPromise;        // 동시 실행 방지
+  contextPromise = (async () => {
+    let c;
+    try {
+      c = await launchCtx();
+    } catch (e) {
+      console.log('[remote] 실행 실패, 1초 후 재시도:', e.message);
+      await new Promise((r) => setTimeout(r, 1000)); // 프로필 잠금 해제 대기
+      c = await launchCtx();
+    }
+    console.log('[remote] Chrome 실행됨');
+    await c.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US', 'en'] });
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+      window.chrome = window.chrome || { runtime: {} };
+    });
+    c.on('page', attachPage);
+    c.on('close', onContextClosed);   // Chrome 창이 닫히면 복구
+    context = c;
+    for (const p of c.pages()) await attachPage(p);
+    return c;
+  })();
+  try { return await contextPromise; }
+  finally { contextPromise = null; }
+}
+
+// Chrome 창이 닫히면(실수로 닫거나 크래시) 상태를 초기화하고, 보는 사람이 있으면 다시 띄운다
+let relaunching = false;
+async function onContextClosed() {
+  console.log('[remote] Chrome 창 닫힘 — 상태 초기화');
+  context = null;
+  tabs.clear();
+  nextTabId = 0;
+  if (viewers.size > 0 && !relaunching) {
+    relaunching = true;
+    try {
+      await new Promise((r) => setTimeout(r, 1000));
+      await getContext();
+      const p = await context.newPage();
+      await p.goto(START_URL, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    } catch (e) {
+      console.error('[remote] 재실행 실패:', e.message);
+    }
+    relaunching = false;
   }
-  await context.addInitScript(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-    Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US', 'en'] });
-    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-    window.chrome = window.chrome || { runtime: {} };
-  });
-  context.on('page', attachPage);
-  for (const p of context.pages()) await attachPage(p);
-  return context;
 }
 
 // 접속자가 모두 나가면 잠시 후 Chrome 종료 (로그인은 프로필에 저장돼 유지)
