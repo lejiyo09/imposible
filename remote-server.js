@@ -250,7 +250,7 @@ wss.on('connection', async (ws) => {
     viewers.delete(ws);
     recomputeStreaming(); // 아무도 안 보는 탭은 스트리밍 중지
     console.log('[remote] 뷰어 연결 해제');
-    if (viewers.size === 0) scheduleShutdown(); // 다 나가면 Chrome 종료 예약
+    // 브라우저는 종료하지 않고 유지 (재실행 시 프로필 잠금 충돌 방지). 스트리밍만 멈춤.
   });
 });
 
