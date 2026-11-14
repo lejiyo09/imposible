@@ -17,7 +17,7 @@ const VIEWPORT = { width: 1280, height: 720 };
 const START_URL = 'https://www.google.com';
 const USER_DATA_DIR = path.join(__dirname, 'chrome-profile'); // 영구 프로필 폴더
 // 가상 오디오 케이블의 "녹음(출력)" 장치 이름. 다르면 AUDIO_DEVICE 환경변수로 지정.
-const AUDIO_DEVICE = process.env.AUDIO_DEVICE || 'CABLE Output (VB-Audio Virtual Cable)';
+const AUDIO_DEVICE = process.env.AUDIO_DEVICE || 'CABLE Output(VB-Audio Virtual Cable)';
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
