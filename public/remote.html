@@ -50,6 +50,8 @@
   </div>
   <div id="stage">
     <canvas id="screen" width="1280" height="720" tabindex="0"></canvas>
+    <input id="kbd" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false"
+      style="position:fixed; left:-9999px; top:0; width:1px; height:1px; opacity:0;" />
     <div id="status">연결 중…</div>
   </div>
 
@@ -86,19 +88,19 @@ function renderTabs(list, activeId) {
     x.textContent = '×';
     x.onclick = (e) => { e.stopPropagation(); send({ type: 'closetab', id: t.id }); };
     chip.appendChild(x);
-    chip.onclick = () => { send({ type: 'switchtab', id: t.id }); canvas.focus(); };
+    chip.onclick = () => { send({ type: 'switchtab', id: t.id }); kbd.focus(); };
     tabsEl.insertBefore(chip, newtabBtn);
     // 활성 탭 주소를 주소창에 (입력 중이 아닐 때만)
     if (t.active && document.activeElement !== urlBar) urlBar.value = t.url;
   }
 }
-newtabBtn.onclick = () => { send({ type: 'newtab' }); canvas.focus(); };
+newtabBtn.onclick = () => { send({ type: 'newtab' }); kbd.focus(); };
 
 // ── WebSocket 연결 + 자동 재연결 ──
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/remote`);
-  ws.onopen = () => { reconnectDelay = 500; setStatus('연결됨', true); canvas.focus(); };
+  ws.onopen = () => { reconnectDelay = 500; setStatus('연결됨', true); kbd.focus(); };
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.type === 'frame') {
@@ -132,7 +134,7 @@ function coords(e) {
 // ── 포인터 입력 (마우스·터치·터치패드 통합) ──
 canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
-  canvas.focus();
+  kbd.focus();
   try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   const { x, y } = coords(e);
   send({ type: 'down', x, y, button: e.button === 2 ? 'right' : 'left' });
@@ -155,29 +157,38 @@ canvas.addEventListener('wheel', (e) => {
 }, { passive: false });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-// ── 키보드 ──
-canvas.addEventListener('keydown', (e) => {
-  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-    e.preventDefault();
-    send({ type: 'text', text: e.key });
-  } else if (['Enter','Backspace','Tab','Delete','Escape',
-              'ArrowLeft','ArrowRight','ArrowUp','ArrowDown',
-              'Home','End','PageUp','PageDown'].includes(e.key)) {
+// ── 키보드 (한글 IME 지원: 숨은 입력창에서 조합 → 결과만 전송) ──
+const kbd = document.getElementById('kbd');
+let composing = false;
+kbd.addEventListener('compositionstart', () => { composing = true; });
+kbd.addEventListener('compositionend', (e) => {
+  composing = false;
+  if (e.data) send({ type: 'text', text: e.data });  // 완성된 한글 등
+  kbd.value = '';
+});
+kbd.addEventListener('input', () => {
+  if (composing) return;                 // 조합 중엔 compositionend가 처리
+  if (kbd.value) { send({ type: 'text', text: kbd.value }); kbd.value = ''; }  // 영문/숫자/기호
+});
+kbd.addEventListener('keydown', (e) => {
+  if (e.isComposing) return;             // IME 조합 중 특수키 무시
+  if (['Enter','Backspace','Tab','Delete','Escape','ArrowLeft','ArrowRight',
+       'ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(e.key)) {
     e.preventDefault();
     send({ type: 'press', key: e.key });
   }
 });
 
 // ── 툴바 ──
-document.getElementById('back').onclick = () => { send({ type: 'back' }); canvas.focus(); };
-document.getElementById('fwd').onclick = () => { send({ type: 'forward' }); canvas.focus(); };
-document.getElementById('reload').onclick = () => { send({ type: 'reload' }); canvas.focus(); };
+document.getElementById('back').onclick = () => { send({ type: 'back' }); kbd.focus(); };
+document.getElementById('fwd').onclick = () => { send({ type: 'forward' }); kbd.focus(); };
+document.getElementById('reload').onclick = () => { send({ type: 'reload' }); kbd.focus(); };
 urlBar.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     let u = urlBar.value.trim();
     if (!/^https?:\/\//.test(u)) u = 'https://' + u;
     send({ type: 'navigate', url: u });
-    canvas.focus();
+    kbd.focus();
   }
 });
 

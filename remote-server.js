@@ -125,9 +125,12 @@ async function getContext() {
     context = await chromium.launchPersistentContext(USER_DATA_DIR, opts);
     console.log('[remote] 번들 Chromium + 영구 프로필로 실행');
   }
-  // 자동화 탐지 신호 숨기기
+  // 자동화 탐지 신호 숨기기 (완벽하진 않음 — 네이버/구글은 서버 측 탐지도 함)
   await context.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US', 'en'] });
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+    window.chrome = window.chrome || { runtime: {} };
   });
   // 이후 생기는 모든 페이지(팝업 포함) 자동 등록
   context.on('page', attachPage);
