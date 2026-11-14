@@ -8,201 +8,257 @@
 <meta name="theme-color" content="#111317" />
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: #111317; color: #e8eaed;
+  html, body { margin: 0; height: 100%; background: #0e1014; color: #e8eaed;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
-  /* 탭 바 */
-  #tabs { display: flex; gap: 4px; padding: 6px 8px 0; background: #16181d;
-    overflow-x: auto; white-space: nowrap; }
+  /* 상단 바: 탭 목록 + 레이아웃 + 소리 */
+  #top { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #16181d; }
+  #tabs { display: flex; gap: 4px; overflow-x: auto; flex: 1; }
   #tabs::-webkit-scrollbar { height: 0; }
-  .tab { display: inline-flex; align-items: center; gap: 6px; max-width: 200px;
-    background: #23262e; color: #c5c8ce; border: 0; border-radius: 10px 10px 0 0;
-    padding: 8px 10px; font-size: 13px; cursor: pointer; flex: 0 0 auto; }
-  .tab.active { background: #2f333d; color: #fff; }
-  .tab .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
-  .tab .x { opacity: .6; font-size: 15px; line-height: 1; }
-  .tab .x:hover { opacity: 1; }
-  #newtab { flex: 0 0 auto; background: #23262e; color: #c5c8ce; border: 0;
-    border-radius: 10px; padding: 8px 12px; font-size: 16px; cursor: pointer; }
-  /* 툴바 */
-  #bar { display: flex; gap: 6px; padding: 8px; align-items: center; background: #1b1e24; }
-  #bar button { background: #2a2e36; color: #e8eaed; border: 0; border-radius: 8px;
-    padding: 8px 10px; font-size: 15px; cursor: pointer; }
-  #bar button:active { background: #3a3f49; }
-  #url { flex: 1; min-width: 0; background: #0d0f13; color: #e8eaed; border: 1px solid #333;
-    border-radius: 8px; padding: 9px 12px; font-size: 15px; }
-  #stage { position: relative; width: 100%; height: calc(100% - 96px);
-    display: flex; align-items: center; justify-content: center; }
-  canvas { max-width: 100%; max-height: 100%; background: #000; outline: none; touch-action: none; }
-  #status { position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-    background: rgba(0,0,0,.7); padding: 6px 14px; border-radius: 20px; font-size: 13px;
-    pointer-events: none; transition: opacity .3s; }
-  #status.hide { opacity: 0; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; max-width: 180px; flex: 0 0 auto;
+    background: #23262e; color: #c5c8ce; border: 0; border-radius: 8px; padding: 7px 10px;
+    font-size: 13px; cursor: pointer; }
+  .chip .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
+  .chip .x { opacity: .6; } .chip .x:hover { opacity: 1; }
+  .btn { flex: 0 0 auto; background: #2a2e36; color: #e8eaed; border: 0; border-radius: 8px;
+    padding: 7px 11px; font-size: 14px; cursor: pointer; }
+  .btn.on { background: #3b7dd8; }
+  /* 분할 영역 */
+  #panes { display: grid; gap: 4px; padding: 4px; height: calc(100% - 50px); background: #0e1014; }
+  #panes.l1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  #panes.l2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+  #panes.l4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+  .pane { display: flex; flex-direction: column; background: #1b1e24; border-radius: 8px;
+    overflow: hidden; border: 2px solid transparent; min-height: 0; }
+  .pane.focused { border-color: #3b7dd8; }
+  .pbar { display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: #22262e; }
+  .pbar button { background: #2f333d; color: #e8eaed; border: 0; border-radius: 6px;
+    padding: 5px 8px; font-size: 13px; cursor: pointer; }
+  .pbar input { flex: 1; min-width: 0; background: #0d0f13; color: #e8eaed; border: 1px solid #333;
+    border-radius: 6px; padding: 6px 9px; font-size: 13px; }
+  .pwrap { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; background: #000; }
+  .pcanvas { max-width: 100%; max-height: 100%; outline: none; touch-action: none; }
+  .empty { color: #666; font-size: 13px; }
 </style>
 </head>
 <body>
-  <div id="tabs"><button id="newtab" title="새 탭">＋</button></div>
-  <div id="bar">
-    <button id="back" title="뒤로">◀</button>
-    <button id="fwd" title="앞으로">▶</button>
-    <button id="reload" title="새로고침">⟳</button>
-    <input id="url" placeholder="주소 입력 후 Enter" />
-    <button id="sound" title="소리 켜기">🔇</button>
+  <div id="top">
+    <div id="tabs"></div>
+    <button class="btn" id="newtab" title="새 탭">＋ 탭</button>
+    <button class="btn" data-l="1">▢</button>
+    <button class="btn" data-l="2">▢▢</button>
+    <button class="btn" data-l="4">⊞</button>
+    <button class="btn" id="sound" title="소리 켜기">🔇</button>
   </div>
-  <div id="stage">
-    <canvas id="screen" width="1280" height="720" tabindex="0"></canvas>
-    <input id="kbd" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false"
-      style="position:fixed; left:-9999px; top:0; width:1px; height:1px; opacity:0;" />
-    <div id="status">연결 중…</div>
-  </div>
+  <div id="panes" class="l1"></div>
+  <input id="kbd" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false"
+    style="position:fixed; left:-9999px; top:0; width:1px; height:1px; opacity:0;" />
 
 <script>
 const WIDTH = 1280, HEIGHT = 720;
-const canvas = document.getElementById('screen');
-const ctx = canvas.getContext('2d');
-const urlBar = document.getElementById('url');
-const statusEl = document.getElementById('status');
 const tabsEl = document.getElementById('tabs');
-const newtabBtn = document.getElementById('newtab');
+const panesEl = document.getElementById('panes');
+const kbd = document.getElementById('kbd');
 
 let ws = null, reconnectDelay = 500;
+let tabList = [];           // [{id,title,url}]
+let panes = [];            // 패널 객체들
+let focused = 0;           // 포커스된 패널 index
+let layout = 1;
 
-function setStatus(text, autohide) {
-  statusEl.textContent = text;
-  statusEl.classList.remove('hide');
-  if (autohide) setTimeout(() => statusEl.classList.add('hide'), 800);
+// ── 패널 생성 ──
+function makePane(idx) {
+  const el = document.createElement('div');
+  el.className = 'pane';
+  el.innerHTML = `
+    <div class="pbar">
+      <button data-a="back">◀</button>
+      <button data-a="fwd">▶</button>
+      <button data-a="reload">⟳</button>
+      <input class="purl" placeholder="주소 입력 후 Enter" />
+    </div>
+    <div class="pwrap"><canvas class="pcanvas" width="${WIDTH}" height="${HEIGHT}"></canvas></div>`;
+  const canvas = el.querySelector('canvas');
+  const ctx = canvas.getContext('2d');
+  const urlInput = el.querySelector('.purl');
+  const pane = { el, canvas, ctx, urlInput, tabId: null };
+
+  // 패널 클릭 → 포커스
+  el.addEventListener('mousedown', () => setFocus(idx), true);
+
+  // 입력 (대상 = 이 패널의 탭)
+  function coords(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: Math.round((e.clientX - r.left) * (WIDTH / r.width)),
+             y: Math.round((e.clientY - r.top) * (HEIGHT / r.height)) };
+  }
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); setFocus(idx); kbd.focus();
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    if (pane.tabId == null) return;
+    const { x, y } = coords(e);
+    send({ type: 'down', tab: pane.tabId, x, y, button: e.button === 2 ? 'right' : 'left' });
+  });
+  canvas.addEventListener('pointerup', (e) => {
+    if (pane.tabId == null) return;
+    const { x, y } = coords(e);
+    send({ type: 'up', tab: pane.tabId, x, y, button: e.button === 2 ? 'right' : 'left' });
+  });
+  let lastMove = 0;
+  canvas.addEventListener('pointermove', (e) => {
+    if (pane.tabId == null) return;
+    const now = Date.now(); if (now - lastMove < 40) return; lastMove = now;
+    const { x, y } = coords(e);
+    send({ type: 'move', tab: pane.tabId, x, y });
+  });
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (pane.tabId == null) return;
+    send({ type: 'wheel', tab: pane.tabId, dx: e.deltaX, dy: e.deltaY });
+  }, { passive: false });
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // 패널 툴바
+  el.querySelectorAll('.pbar button').forEach((b) => {
+    b.onclick = () => { if (pane.tabId != null) { send({ type: b.dataset.a, tab: pane.tabId }); kbd.focus(); } };
+  });
+  urlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && pane.tabId != null) {
+      let u = urlInput.value.trim();
+      if (!/^https?:\/\//.test(u)) u = 'https://' + u;
+      send({ type: 'navigate', tab: pane.tabId, url: u });
+      kbd.focus();
+    }
+  });
+
+  return pane;
 }
 
-// ── 탭 바 렌더링 ──
-function renderTabs(list, activeId) {
-  // 기존 탭 칩 제거 ('+' 버튼은 유지)
-  [...tabsEl.querySelectorAll('.tab')].forEach((el) => el.remove());
-  for (const t of list) {
+function setLayout(n) {
+  layout = n;
+  panesEl.className = 'l' + n;
+  panesEl.innerHTML = '';
+  const old = panes;
+  panes = [];
+  for (let i = 0; i < n; i++) {
+    const p = makePane(i);
+    // 기존 패널의 탭 배정 유지
+    if (old[i]) p.tabId = old[i].tabId;
+    panes.push(p);
+    panesEl.appendChild(p.el);
+  }
+  if (focused >= n) focused = 0;
+  // 첫 탭을 빈 패널에 자동 배정
+  if (panes[0].tabId == null && tabList[0]) panes[0].tabId = tabList[0].id;
+  document.querySelectorAll('.btn[data-l]').forEach((b) => b.classList.toggle('on', +b.dataset.l === n));
+  refreshPanes();
+  updateVisible();
+}
+function setFocus(idx) {
+  focused = idx;
+  panes.forEach((p, i) => p.el.classList.toggle('focused', i === idx));
+}
+
+// 패널 헤더(주소창/제목) 갱신
+function refreshPanes() {
+  panes.forEach((p, i) => {
+    p.el.classList.toggle('focused', i === focused);
+    const tab = tabList.find((t) => t.id === p.tabId);
+    if (tab && document.activeElement !== p.urlInput) p.urlInput.value = tab.url;
+  });
+}
+
+// 서버에 "지금 보고 있는 탭들" 통보
+function updateVisible() {
+  const ids = [...new Set(panes.map((p) => p.tabId).filter((x) => x != null))];
+  send({ type: 'setvisible', ids });
+}
+
+// ── 탭 칩 ──
+function renderTabs() {
+  tabsEl.innerHTML = '';
+  for (const t of tabList) {
     const chip = document.createElement('div');
-    chip.className = 'tab' + (t.active ? ' active' : '');
+    chip.className = 'chip';
     const label = document.createElement('span');
-    label.className = 't';
-    label.textContent = t.title || '새 탭';
-    chip.appendChild(label);
+    label.className = 't'; label.textContent = t.title || '새 탭';
     const x = document.createElement('span');
-    x.className = 'x';
-    x.textContent = '×';
+    x.className = 'x'; x.textContent = '×';
     x.onclick = (e) => { e.stopPropagation(); send({ type: 'closetab', id: t.id }); };
-    chip.appendChild(x);
-    chip.onclick = () => { send({ type: 'switchtab', id: t.id }); kbd.focus(); };
-    tabsEl.insertBefore(chip, newtabBtn);
-    // 활성 탭 주소를 주소창에 (입력 중이 아닐 때만)
-    if (t.active && document.activeElement !== urlBar) urlBar.value = t.url;
+    chip.appendChild(label); chip.appendChild(x);
+    // 칩 클릭 → 포커스된 패널에 이 탭 배정
+    chip.onclick = () => { panes[focused].tabId = t.id; refreshPanes(); updateVisible(); kbd.focus(); };
+    tabsEl.appendChild(chip);
   }
 }
-newtabBtn.onclick = () => { send({ type: 'newtab' }); kbd.focus(); };
+document.getElementById('newtab').onclick = () => send({ type: 'newtab' });
+document.querySelectorAll('.btn[data-l]').forEach((b) => { b.onclick = () => setLayout(+b.dataset.l); });
 
-// ── WebSocket 연결 + 자동 재연결 ──
+// ── WebSocket ──
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/remote`);
-  ws.onopen = () => { reconnectDelay = 500; setStatus('연결됨', true); kbd.focus(); };
+  ws.onopen = () => { reconnectDelay = 500; kbd.focus(); };
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.type === 'frame') {
       const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0, WIDTH, HEIGHT);
+      img.onload = () => { for (const p of panes) if (p.tabId === msg.id) p.ctx.drawImage(img, 0, 0, WIDTH, HEIGHT); };
       img.src = 'data:image/jpeg;base64,' + msg.data;
     } else if (msg.type === 'tabs') {
-      renderTabs(msg.tabs, msg.activeId);
+      tabList = msg.tabs;
+      // 사라진 탭이 배정돼 있으면 해제
+      for (const p of panes) if (p.tabId != null && !tabList.find((t) => t.id === p.tabId)) p.tabId = null;
+      // 첫 패널이 비었으면 첫 탭 배정
+      if (panes[0] && panes[0].tabId == null && tabList[0]) { panes[0].tabId = tabList[0].id; updateVisible(); }
+      renderTabs(); refreshPanes();
+    } else if (msg.type === 'opened') {
+      // 새 탭/팝업: 빈 패널 있으면 거기, 없으면 포커스 패널에 배정해서 보이게
+      let slot = panes.findIndex((p) => p.tabId == null);
+      if (slot < 0) slot = focused;
+      panes[slot].tabId = msg.id;
+      refreshPanes(); updateVisible();
     } else if (msg.type === 'cursor') {
-      canvas.style.cursor = msg.cursor || 'default';
+      for (const p of panes) if (p.tabId === msg.id) p.canvas.style.cursor = msg.cursor || 'default';
     }
   };
-  ws.onclose = () => {
-    setStatus('연결 끊김 — 재연결 중…');
-    setTimeout(connect, reconnectDelay);
-    reconnectDelay = Math.min(reconnectDelay * 1.6, 5000);
-  };
+  ws.onclose = () => { setTimeout(connect, reconnectDelay); reconnectDelay = Math.min(reconnectDelay * 1.6, 5000); };
   ws.onerror = () => { try { ws.close(); } catch (_) {} };
 }
-connect();
-
 function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
 
-// ── 좌표 변환 (표시 크기 → 서버 1280x720) ──
-function coords(e) {
-  const r = canvas.getBoundingClientRect();
-  return {
-    x: Math.round((e.clientX - r.left) * (WIDTH / r.width)),
-    y: Math.round((e.clientY - r.top) * (HEIGHT / r.height)),
-  };
-}
-
-// ── 포인터 입력 (마우스·터치·터치패드 통합) ──
-canvas.addEventListener('pointerdown', (e) => {
-  e.preventDefault();
-  kbd.focus();
-  try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
-  const { x, y } = coords(e);
-  send({ type: 'down', x, y, button: e.button === 2 ? 'right' : 'left' });
-});
-canvas.addEventListener('pointerup', (e) => {
-  const { x, y } = coords(e);
-  send({ type: 'up', x, y, button: e.button === 2 ? 'right' : 'left' });
-});
-let lastMove = 0;
-canvas.addEventListener('pointermove', (e) => {
-  const now = Date.now();
-  if (now - lastMove < 40) return;
-  lastMove = now;
-  const { x, y } = coords(e);
-  send({ type: 'move', x, y });
-});
-canvas.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  send({ type: 'wheel', dx: e.deltaX, dy: e.deltaY });
-}, { passive: false });
-canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
-// ── 키보드 (한글 IME 지원: 숨은 입력창에서 조합 → 결과만 전송) ──
-const kbd = document.getElementById('kbd');
+// ── 키보드 (포커스된 패널의 탭으로, 한글 IME 지원) ──
 let composing = false;
 kbd.addEventListener('compositionstart', () => { composing = true; });
 kbd.addEventListener('compositionend', (e) => {
   composing = false;
-  if (e.data) send({ type: 'text', text: e.data });  // 완성된 한글 등
+  const tabId = panes[focused] && panes[focused].tabId;
+  if (e.data && tabId != null) send({ type: 'text', tab: tabId, text: e.data });
   kbd.value = '';
 });
 kbd.addEventListener('input', () => {
-  if (composing) return;                 // 조합 중엔 compositionend가 처리
-  if (kbd.value) { send({ type: 'text', text: kbd.value }); kbd.value = ''; }  // 영문/숫자/기호
+  if (composing) return;
+  const tabId = panes[focused] && panes[focused].tabId;
+  if (kbd.value && tabId != null) { send({ type: 'text', tab: tabId, text: kbd.value }); kbd.value = ''; }
 });
 kbd.addEventListener('keydown', (e) => {
-  if (e.isComposing) return;             // IME 조합 중 특수키 무시
+  if (e.isComposing) return;
+  const tabId = panes[focused] && panes[focused].tabId;
+  if (tabId == null) return;
   if (['Enter','Backspace','Tab','Delete','Escape','ArrowLeft','ArrowRight',
        'ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(e.key)) {
     e.preventDefault();
-    send({ type: 'press', key: e.key });
+    send({ type: 'press', tab: tabId, key: e.key });
   }
 });
 
-// ── 툴바 ──
-document.getElementById('back').onclick = () => { send({ type: 'back' }); kbd.focus(); };
-document.getElementById('fwd').onclick = () => { send({ type: 'forward' }); kbd.focus(); };
-document.getElementById('reload').onclick = () => { send({ type: 'reload' }); kbd.focus(); };
-urlBar.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    let u = urlBar.value.trim();
-    if (!/^https?:\/\//.test(u)) u = 'https://' + u;
-    send({ type: 'navigate', url: u });
-    kbd.focus();
-  }
-});
-
-// ── 소리 (원격 브라우저 오디오를 크롬북에서 재생, 오멘에서는 안 남) ──
+// ── 소리 (전체 소리 하나) ──
 let audioCtx = null, audioWs = null, nextTime = 0, leftover = new Uint8Array(0), soundOn = false;
 const soundBtn = document.getElementById('sound');
 soundBtn.onclick = () => { soundOn ? stopAudio() : startAudio(); };
 function startAudio() {
   audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
   audioCtx.resume();
-  nextTime = audioCtx.currentTime;
-  leftover = new Uint8Array(0);
+  nextTime = audioCtx.currentTime; leftover = new Uint8Array(0);
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   audioWs = new WebSocket(`${proto}://${location.host}/audio`);
   audioWs.binaryType = 'arraybuffer';
@@ -221,8 +277,8 @@ function startAudio() {
     const src = audioCtx.createBufferSource();
     src.buffer = buf; src.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
-    if (nextTime < now) nextTime = now + 0.05;             // 끊김(언더런) → 살짝 앞서 재생
-    else if (nextTime - now > 0.30) nextTime = now + 0.05; // 버퍼 과다(화면보다 밀림) → 밀린 소리 버리고 따라잡기
+    if (nextTime < now) nextTime = now + 0.05;
+    else if (nextTime - now > 0.30) nextTime = now + 0.05;
     src.start(nextTime);
     nextTime += buf.duration;
   };
@@ -235,7 +291,10 @@ function stopAudio() {
   soundBtn.textContent = '🔇'; soundBtn.title = '소리 켜기';
 }
 
-// ── PWA ──
+// 시작
+setLayout(1);
+setFocus(0);
+connect();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/remote-sw.js').catch(() => {});
 </script>
 </body>
