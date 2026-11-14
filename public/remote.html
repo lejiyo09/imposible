@@ -101,19 +101,22 @@ function coords(e) {
   };
 }
 
-// ── 마우스 ──
-canvas.addEventListener('mousedown', (e) => {
+// ── 포인터 입력 (마우스·터치·터치패드 통합) ──
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
   canvas.focus();
+  try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   const { x, y } = coords(e);
   send({ type: 'down', x, y, button: e.button === 2 ? 'right' : 'left' });
 });
-canvas.addEventListener('mouseup', (e) => {
-  send({ type: 'up', button: e.button === 2 ? 'right' : 'left' });
+canvas.addEventListener('pointerup', (e) => {
+  const { x, y } = coords(e);
+  send({ type: 'up', x, y, button: e.button === 2 ? 'right' : 'left' });
 });
 let lastMove = 0;
-canvas.addEventListener('mousemove', (e) => {
+canvas.addEventListener('pointermove', (e) => {
   const now = Date.now();
-  if (now - lastMove < 30) return;   // ~33fps로 전송 제한
+  if (now - lastMove < 40) return;   // 과도한 전송 방지 (렉 완화)
   lastMove = now;
   const { x, y } = coords(e);
   send({ type: 'move', x, y });

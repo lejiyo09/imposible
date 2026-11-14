@@ -179,6 +179,8 @@ wss.on('connection', async (ws) => {
           await page.mouse.down({ button: msg.button || 'left' });
           break;
         case 'up':
+          // 놓는 위치를 정확히 맞춘 뒤 떼기 (클릭 정확도 + 드래그)
+          if (typeof msg.x === 'number') await page.mouse.move(msg.x, msg.y);
           await page.mouse.up({ button: msg.button || 'left' });
           break;
         case 'wheel':
