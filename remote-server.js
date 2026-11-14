@@ -124,7 +124,7 @@ function startAudioCapture() {
   if (ffmpeg) return;
   console.log('[audio] ffmpeg 시작 — 장치:', AUDIO_DEVICE);
   ffmpeg = spawn('ffmpeg', [
-    '-f', 'dshow', '-i', 'audio=' + AUDIO_DEVICE,
+    '-f', 'dshow', '-audio_buffer_size', '80', '-i', 'audio=' + AUDIO_DEVICE, // 캡처 버퍼 80ms로 지연 축소
     '-ac', '2', '-ar', '48000',
     '-fflags', 'nobuffer', '-flags', 'low_delay',
     '-f', 's16le', '-',
