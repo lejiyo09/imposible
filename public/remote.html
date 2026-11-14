@@ -10,16 +10,29 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: #111317; color: #e8eaed;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  /* 탭 바 */
+  #tabs { display: flex; gap: 4px; padding: 6px 8px 0; background: #16181d;
+    overflow-x: auto; white-space: nowrap; }
+  #tabs::-webkit-scrollbar { height: 0; }
+  .tab { display: inline-flex; align-items: center; gap: 6px; max-width: 200px;
+    background: #23262e; color: #c5c8ce; border: 0; border-radius: 10px 10px 0 0;
+    padding: 8px 10px; font-size: 13px; cursor: pointer; flex: 0 0 auto; }
+  .tab.active { background: #2f333d; color: #fff; }
+  .tab .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+  .tab .x { opacity: .6; font-size: 15px; line-height: 1; }
+  .tab .x:hover { opacity: 1; }
+  #newtab { flex: 0 0 auto; background: #23262e; color: #c5c8ce; border: 0;
+    border-radius: 10px; padding: 8px 12px; font-size: 16px; cursor: pointer; }
+  /* 툴바 */
   #bar { display: flex; gap: 6px; padding: 8px; align-items: center; background: #1b1e24; }
   #bar button { background: #2a2e36; color: #e8eaed; border: 0; border-radius: 8px;
     padding: 8px 10px; font-size: 15px; cursor: pointer; }
   #bar button:active { background: #3a3f49; }
   #url { flex: 1; min-width: 0; background: #0d0f13; color: #e8eaed; border: 1px solid #333;
     border-radius: 8px; padding: 9px 12px; font-size: 15px; }
-  #stage { position: relative; width: 100%; height: calc(100% - 52px);
+  #stage { position: relative; width: 100%; height: calc(100% - 96px);
     display: flex; align-items: center; justify-content: center; }
-  canvas { max-width: 100%; max-height: 100%; background: #000; outline: none;
-    touch-action: none; }
+  canvas { max-width: 100%; max-height: 100%; background: #000; outline: none; touch-action: none; }
   #status { position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
     background: rgba(0,0,0,.7); padding: 6px 14px; border-radius: 20px; font-size: 13px;
     pointer-events: none; transition: opacity .3s; }
@@ -27,6 +40,7 @@
 </style>
 </head>
 <body>
+  <div id="tabs"><button id="newtab" title="새 탭">＋</button></div>
   <div id="bar">
     <button id="back" title="뒤로">◀</button>
     <button id="fwd" title="앞으로">▶</button>
@@ -45,6 +59,8 @@ const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
 const urlBar = document.getElementById('url');
 const statusEl = document.getElementById('status');
+const tabsEl = document.getElementById('tabs');
+const newtabBtn = document.getElementById('newtab');
 
 let ws = null, reconnectDelay = 500;
 
@@ -54,45 +70,57 @@ function setStatus(text, autohide) {
   if (autohide) setTimeout(() => statusEl.classList.add('hide'), 800);
 }
 
-// ── WebSocket 연결 + 자동 재연결 (상시 연결 유지) ──
+// ── 탭 바 렌더링 ──
+function renderTabs(list, activeId) {
+  // 기존 탭 칩 제거 ('+' 버튼은 유지)
+  [...tabsEl.querySelectorAll('.tab')].forEach((el) => el.remove());
+  for (const t of list) {
+    const chip = document.createElement('div');
+    chip.className = 'tab' + (t.active ? ' active' : '');
+    const label = document.createElement('span');
+    label.className = 't';
+    label.textContent = t.title || '새 탭';
+    chip.appendChild(label);
+    const x = document.createElement('span');
+    x.className = 'x';
+    x.textContent = '×';
+    x.onclick = (e) => { e.stopPropagation(); send({ type: 'closetab', id: t.id }); };
+    chip.appendChild(x);
+    chip.onclick = () => { send({ type: 'switchtab', id: t.id }); canvas.focus(); };
+    tabsEl.insertBefore(chip, newtabBtn);
+    // 활성 탭 주소를 주소창에 (입력 중이 아닐 때만)
+    if (t.active && document.activeElement !== urlBar) urlBar.value = t.url;
+  }
+}
+newtabBtn.onclick = () => { send({ type: 'newtab' }); canvas.focus(); };
+
+// ── WebSocket 연결 + 자동 재연결 ──
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/remote`);
-
-  ws.onopen = () => {
-    reconnectDelay = 500;
-    setStatus('연결됨', true);
-    canvas.focus();
-  };
-
+  ws.onopen = () => { reconnectDelay = 500; setStatus('연결됨', true); canvas.focus(); };
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.type === 'frame') {
       const img = new Image();
       img.onload = () => ctx.drawImage(img, 0, 0, WIDTH, HEIGHT);
       img.src = 'data:image/jpeg;base64,' + msg.data;
-    } else if (msg.type === 'url') {
-      urlBar.value = msg.url;
-      if (msg.title) document.title = msg.title + ' — Geo-Zebra';
+    } else if (msg.type === 'tabs') {
+      renderTabs(msg.tabs, msg.activeId);
     }
   };
-
   ws.onclose = () => {
     setStatus('연결 끊김 — 재연결 중…');
-    // 지수 백오프로 재연결 (최대 5초)
     setTimeout(connect, reconnectDelay);
     reconnectDelay = Math.min(reconnectDelay * 1.6, 5000);
   };
-
   ws.onerror = () => { try { ws.close(); } catch (_) {} };
 }
 connect();
 
-function send(obj) {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
-}
+function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
 
-// ── 화면 좌표 변환 (캔버스 표시 크기 → 서버 1280x720 기준) ──
+// ── 좌표 변환 (표시 크기 → 서버 1280x720) ──
 function coords(e) {
   const r = canvas.getBoundingClientRect();
   return {
@@ -116,7 +144,7 @@ canvas.addEventListener('pointerup', (e) => {
 let lastMove = 0;
 canvas.addEventListener('pointermove', (e) => {
   const now = Date.now();
-  if (now - lastMove < 40) return;   // 과도한 전송 방지 (렉 완화)
+  if (now - lastMove < 40) return;
   lastMove = now;
   const { x, y } = coords(e);
   send({ type: 'move', x, y });
@@ -127,9 +155,8 @@ canvas.addEventListener('wheel', (e) => {
 }, { passive: false });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-// ── 키보드 (캔버스에 포커스가 있을 때) ──
+// ── 키보드 ──
 canvas.addEventListener('keydown', (e) => {
-  // 인쇄 가능한 단일 문자(한글/영문/숫자/기호/스페이스)는 텍스트로
   if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault();
     send({ type: 'text', text: e.key });
@@ -154,12 +181,10 @@ urlBar.addEventListener('keydown', (e) => {
   }
 });
 
-// ── 소리: 원격 브라우저 오디오를 크롬북에서 재생 (오멘에서는 안 남) ──
-// 브라우저 자동재생 정책 때문에 반드시 사용자가 버튼을 눌러야 시작됨
+// ── 소리 (원격 브라우저 오디오를 크롬북에서 재생, 오멘에서는 안 남) ──
 let audioCtx = null, audioWs = null, nextTime = 0, leftover = new Uint8Array(0), soundOn = false;
 const soundBtn = document.getElementById('sound');
 soundBtn.onclick = () => { soundOn ? stopAudio() : startAudio(); };
-
 function startAudio() {
   audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
   audioCtx.resume();
@@ -169,7 +194,6 @@ function startAudio() {
   audioWs = new WebSocket(`${proto}://${location.host}/audio`);
   audioWs.binaryType = 'arraybuffer';
   audioWs.onmessage = (ev) => {
-    // 서버가 보내는 PCM 바이트를 누적 후 4바이트(스테레오 16bit) 단위로만 처리
     const inc = new Uint8Array(ev.data);
     const merged = new Uint8Array(leftover.length + inc.length);
     merged.set(leftover); merged.set(inc, leftover.length);
@@ -184,7 +208,7 @@ function startAudio() {
     const src = audioCtx.createBufferSource();
     src.buffer = buf; src.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
-    if (nextTime < now) nextTime = now + 0.08; // 밀리면 재동기화
+    if (nextTime < now) nextTime = now + 0.08;
     src.start(nextTime);
     nextTime += buf.duration;
   };
@@ -197,10 +221,8 @@ function stopAudio() {
   soundBtn.textContent = '🔇'; soundBtn.title = '소리 켜기';
 }
 
-// ── PWA: 앱으로 설치 가능하게 서비스 워커 등록 ──
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/remote-sw.js').catch(() => {});
-}
+// ── PWA ──
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/remote-sw.js').catch(() => {});
 </script>
 </body>
 </html>

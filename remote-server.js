@@ -1,9 +1,10 @@
-// Geo-Zebra 원격 브라우저 프로토타입 (MVP)
-// 서버에서 실제 Chromium을 실행하고, 화면을 WebSocket으로 스트리밍한다.
-// 입력(마우스/키보드)은 Playwright 고수준 API로 안정적으로 전달한다.
+// Geo-Zebra 원격 브라우저 (탭 + 팝업 + 소리 + 영구 프로필)
+// 서버에서 실제 Chrome을 띄우고 화면을 WebSocket으로 스트리밍한다.
+// - 영구 프로필: 쿠키/기기신뢰 유지 → 네이버 등 "새 기기" 잠금 방지, 로그인 유지
+// - 여러 탭 + 팝업(새 창) 자동 인식
+// - 입력은 Playwright 고수준 API, 소리는 ffmpeg로 가상 케이블 캡처
 //
-// 실행: node remote-server.js
-// 접속: http://localhost:3001/remote.html
+// 실행: node remote-server.js   접속: http://localhost:3001/remote.html
 
 const express = require('express');
 const path = require('path');
@@ -14,73 +15,153 @@ const { chromium } = require('playwright');
 const PORT = process.env.REMOTE_PORT || 3001;
 const VIEWPORT = { width: 1280, height: 720 };
 const START_URL = 'https://www.google.com';
+const USER_DATA_DIR = path.join(__dirname, 'chrome-profile'); // 영구 프로필 폴더
 // 가상 오디오 케이블의 "녹음(출력)" 장치 이름. 다르면 AUDIO_DEVICE 환경변수로 지정.
-// 장치 목록 확인: ffmpeg -list_devices true -f dshow -i dummy
 const AUDIO_DEVICE = process.env.AUDIO_DEVICE || 'CABLE Output (VB-Audio Virtual Cable)';
 
-// ── 브라우저는 서버당 1개만 띄우고 재사용 ──
-let browser;
-async function getBrowser() {
-  if (!browser || !browser.isConnected()) {
-    console.log('[remote] Chromium 실행...');
-    const opts = {
-      headless: false, // 소리를 오디오 장치로 내보내려면 headful 필요
-      args: [
-        '--disable-gpu',
-        '--disable-dev-shm-usage',
-        // 자동화 탐지 신호 제거 (navigator.webdriver 등) — 구글 등의 봇 차단 완화
-        '--disable-blink-features=AutomationControlled',
-      ],
-    };
-    try {
-      // 번들 Chromium보다 실제 설치된 Chrome이 덜 탐지됨
-      browser = await chromium.launch({ ...opts, channel: 'chrome' });
-      console.log('[remote] 실제 Chrome으로 실행');
-    } catch (_) {
-      browser = await chromium.launch(opts); // Chrome 없으면 번들 Chromium으로 폴백
-      console.log('[remote] 번들 Chromium으로 실행');
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+// ── 공유 브라우저 상태 (단일 사용자: 하나의 브라우저를 여러 뷰어가 공유) ──
+let context = null;              // 영구 컨텍스트 (브라우저)
+const tabs = new Map();          // id → { id, page, cdp, streaming }
+let activeId = null;
+let nextTabId = 0;
+const viewers = new Set();       // /remote WebSocket 클라이언트들
+
+function broadcast(obj) {
+  const s = JSON.stringify(obj);
+  for (const ws of viewers) if (ws.readyState === 1) ws.send(s);
+}
+function broadcastFrame(dataB64) {
+  const s = JSON.stringify({ type: 'frame', data: dataB64 });
+  for (const ws of viewers) if (ws.readyState === 1) ws.send(s);
+}
+function active() {
+  return tabs.get(activeId);
+}
+
+async function sendTabList() {
+  const list = [];
+  for (const t of tabs.values()) {
+    let title = '';
+    try { title = await t.page.title(); } catch (_) {}
+    const url = t.page.url();
+    list.push({ id: t.id, title: title || url || '새 탭', url, active: t.id === activeId });
+  }
+  broadcast({ type: 'tabs', tabs: list, activeId });
+}
+
+async function setActive(id) {
+  const entry = tabs.get(id);
+  if (!entry) return;
+  // 다른 탭 스트리밍 중지
+  for (const t of tabs.values()) {
+    if (t.id !== id && t.streaming) {
+      t.streaming = false;
+      try { await t.cdp.send('Page.stopScreencast'); } catch (_) {}
     }
   }
-  return browser;
+  activeId = id;
+  entry.streaming = true;
+  try {
+    await entry.cdp.send('Page.startScreencast', {
+      format: 'jpeg', quality: 60,
+      maxWidth: VIEWPORT.width, maxHeight: VIEWPORT.height, everyNthFrame: 1,
+    });
+  } catch (_) {}
+  sendTabList();
 }
 
-// e.key(브라우저 키 이름) → Playwright 키 이름. 대부분 동일하므로 그대로 넘긴다.
-function mapKey(key) {
-  return key; // 'Enter', 'Backspace', 'ArrowLeft', 'Tab' 등 그대로 통함
+// 새 페이지(수동 새 탭 + 팝업/새 창)를 모두 여기서 등록
+async function attachPage(page) {
+  if (page.__attached) return;
+  page.__attached = true;
+  const id = ++nextTabId;
+  let cdp;
+  try { cdp = await context.newCDPSession(page); } catch (_) { return; }
+  const entry = { id, page, cdp, streaming: false };
+  tabs.set(id, entry);
+
+  cdp.on('Page.screencastFrame', async (frame) => {
+    if (entry.streaming) broadcastFrame(frame.data);
+    try { await cdp.send('Page.screencastFrameAck', { sessionId: frame.sessionId }); } catch (_) {}
+  });
+
+  page.on('load', () => sendTabList());
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) sendTabList(); });
+  page.on('close', () => {
+    tabs.delete(id);
+    if (activeId === id) {
+      const first = tabs.keys().next();
+      if (!first.done) setActive(first.value);
+    }
+    sendTabList();
+  });
+
+  // 팝업/새 탭이 뜨면 자동으로 그 탭으로 전환해서 보이게
+  await setActive(id);
 }
 
-const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
+async function getContext() {
+  if (context) return context;
+  const opts = {
+    headless: false,            // 소리 출력 + 봇 탐지 완화를 위해 headful
+    viewport: VIEWPORT,
+    locale: 'ko-KR',
+    timezoneId: 'Asia/Seoul',
+    userAgent: UA,
+    args: [
+      '--disable-gpu',
+      '--disable-dev-shm-usage',
+      '--disable-blink-features=AutomationControlled',
+    ],
+  };
+  try {
+    context = await chromium.launchPersistentContext(USER_DATA_DIR, { ...opts, channel: 'chrome' });
+    console.log('[remote] 실제 Chrome + 영구 프로필로 실행');
+  } catch (_) {
+    context = await chromium.launchPersistentContext(USER_DATA_DIR, opts);
+    console.log('[remote] 번들 Chromium + 영구 프로필로 실행');
+  }
+  // 자동화 탐지 신호 숨기기
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+  });
+  // 이후 생기는 모든 페이지(팝업 포함) 자동 등록
+  context.on('page', attachPage);
+  // 런치 시 이미 열려 있는 페이지 등록
+  for (const p of context.pages()) await attachPage(p);
+  return context;
+}
 
-const server = app.listen(PORT, () => {
-  console.log(`Remote browser on http://localhost:${PORT}/remote.html`);
-});
-
-// ── 오디오 캡처: ffmpeg로 가상 케이블의 소리를 받아 /audio 클라이언트로 중계 ──
+// ── 오디오 캡처: ffmpeg로 가상 케이블의 소리를 받아 /audio 로 중계 ──
 const audioClients = new Set();
 let ffmpeg = null;
 function startAudioCapture() {
   if (ffmpeg) return;
   console.log('[audio] ffmpeg 시작 — 장치:', AUDIO_DEVICE);
   ffmpeg = spawn('ffmpeg', [
-    '-f', 'dshow',
-    '-i', 'audio=' + AUDIO_DEVICE,
+    '-f', 'dshow', '-i', 'audio=' + AUDIO_DEVICE,
     '-ac', '2', '-ar', '48000',
     '-fflags', 'nobuffer', '-flags', 'low_delay',
-    '-f', 's16le', '-', // 무압축 PCM을 표준출력으로
+    '-f', 's16le', '-',
   ]);
   ffmpeg.stdout.on('data', (chunk) => {
     for (const c of audioClients) if (c.readyState === 1) c.send(chunk);
   });
-  ffmpeg.stderr.on('data', () => {}); // ffmpeg 로그는 버림
+  ffmpeg.stderr.on('data', () => {});
   ffmpeg.on('close', (code) => { console.log('[audio] ffmpeg 종료', code); ffmpeg = null; });
-  ffmpeg.on('error', (e) => {
-    console.error('[audio] ffmpeg 오류:', e.message, '— ffmpeg 설치됐는지 확인');
-    ffmpeg = null;
-  });
+  ffmpeg.on('error', (e) => { console.error('[audio] ffmpeg 오류:', e.message, '— ffmpeg 설치 확인'); ffmpeg = null; });
 }
 
-// WebSocket 두 경로: /remote (화면·입력), /audio (소리)
+const app = express();
+app.use(express.static(path.join(__dirname, 'public')));
+const server = app.listen(PORT, () => {
+  console.log(`Remote browser on http://localhost:${PORT}/remote.html`);
+});
+
 const wss = new WebSocketServer({ noServer: true });
 const audioWss = new WebSocketServer({ noServer: true });
 
@@ -101,125 +182,97 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 wss.on('connection', async (ws) => {
-  console.log('[remote] 클라이언트 연결됨');
-  let context, page, cdp;
-
+  console.log('[remote] 뷰어 연결됨');
+  viewers.add(ws);
   try {
-    const br = await getBrowser();
-    // 탭(세션)별로 쿠키/로그인을 유지하려면 storageState 경로를 지정하면 됨 (MVP에선 생략)
-    context = await br.newContext({
-      viewport: VIEWPORT,
-      locale: 'ko-KR',
-      timezoneId: 'Asia/Seoul',
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-        '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    });
-    // 자동화 탐지 신호(navigator.webdriver) 숨기기
-    await context.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-    });
-    page = await context.newPage();
-    cdp = await context.newCDPSession(page);
-
-    // 화면 스트리밍 시작 (CDP)
-    await cdp.send('Page.startScreencast', {
-      format: 'jpeg',
-      quality: 60,
-      maxWidth: VIEWPORT.width,
-      maxHeight: VIEWPORT.height,
-      everyNthFrame: 1,
-    });
-
-    // 프레임이 오면 클라이언트로 전송하고 즉시 ack (ack 해야 다음 프레임이 옴)
-    cdp.on('Page.screencastFrame', async (frame) => {
-      if (ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'frame', data: frame.data }));
+    await getContext();
+    if (tabs.size === 0) {
+      const p = await context.newPage();      // 'page' 이벤트로 attachPage 실행됨
+      await p.goto(START_URL, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    } else {
+      // 빈 탭이면 시작 페이지로
+      const a = active();
+      if (a && a.page.url().startsWith('about:')) {
+        await a.page.goto(START_URL, { waitUntil: 'domcontentloaded' }).catch(() => {});
       }
-      try {
-        await cdp.send('Page.screencastFrameAck', { sessionId: frame.sessionId });
-      } catch (_) {}
-    });
-
-    // 페이지 로드 시 현재 URL/제목을 알려줌 (주소창 동기화)
-    page.on('load', async () => {
-      if (ws.readyState === 1) {
-        ws.send(
-          JSON.stringify({
-            type: 'url',
-            url: page.url(),
-            title: await page.title().catch(() => ''),
-          })
-        );
-      }
-    });
-
-    await page.goto(START_URL, { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await setActive(activeId); // 새 뷰어에게 즉시 프레임 보내기 (키프레임 강제)
+    }
+    sendTabList();
   } catch (e) {
     console.error('[remote] 초기화 오류:', e.message);
     ws.close();
     return;
   }
 
-  // ── 클라이언트 입력 수신 ──
   ws.on('message', async (raw) => {
     let msg;
-    try {
-      msg = JSON.parse(raw);
-    } catch {
-      return;
-    }
+    try { msg = JSON.parse(raw); } catch { return; }
+    const a = active();
     try {
       switch (msg.type) {
+        // ── 입력 (활성 탭에 적용) ──
         case 'move':
-          await page.mouse.move(msg.x, msg.y);
+          if (a) await a.page.mouse.move(msg.x, msg.y);
           break;
         case 'down':
-          await page.mouse.move(msg.x, msg.y);
-          await page.mouse.down({ button: msg.button || 'left' });
+          if (a) { await a.page.mouse.move(msg.x, msg.y); await a.page.mouse.down({ button: msg.button || 'left' }); }
           break;
         case 'up':
-          // 놓는 위치를 정확히 맞춘 뒤 떼기 (클릭 정확도 + 드래그)
-          if (typeof msg.x === 'number') await page.mouse.move(msg.x, msg.y);
-          await page.mouse.up({ button: msg.button || 'left' });
+          if (a) { if (typeof msg.x === 'number') await a.page.mouse.move(msg.x, msg.y); await a.page.mouse.up({ button: msg.button || 'left' }); }
           break;
         case 'wheel':
-          await page.mouse.wheel(msg.dx || 0, msg.dy || 0);
+          if (a) await a.page.mouse.wheel(msg.dx || 0, msg.dy || 0);
           break;
         case 'text':
-          // 인쇄 가능한 단일 문자 입력 (한글/영문/숫자/기호)
-          await page.keyboard.insertText(msg.text);
+          if (a) await a.page.keyboard.insertText(msg.text);
           break;
         case 'press':
-          // 특수키 (Enter, Backspace, 방향키 등)
-          await page.keyboard.press(mapKey(msg.key));
+          if (a) await a.page.keyboard.press(msg.key);
           break;
+        // ── 탐색 (활성 탭) ──
         case 'navigate':
-          await page.goto(msg.url, { waitUntil: 'domcontentloaded' }).catch(() => {});
+          if (a) await a.page.goto(msg.url, { waitUntil: 'domcontentloaded' }).catch(() => {});
           break;
         case 'back':
-          await page.goBack().catch(() => {});
+          if (a) await a.page.goBack().catch(() => {});
           break;
         case 'forward':
-          await page.goForward().catch(() => {});
+          if (a) await a.page.goForward().catch(() => {});
           break;
         case 'reload':
-          await page.reload().catch(() => {});
+          if (a) await a.page.reload().catch(() => {});
           break;
+        // ── 탭 ──
+        case 'newtab': {
+          const p = await context.newPage();
+          await p.goto(msg.url || START_URL, { waitUntil: 'domcontentloaded' }).catch(() => {});
+          break;
+        }
+        case 'switchtab':
+          if (tabs.has(msg.id)) await setActive(msg.id);
+          break;
+        case 'closetab': {
+          const t = tabs.get(msg.id);
+          if (t) await t.page.close().catch(() => {});
+          break;
+        }
       }
     } catch (e) {
-      console.error('[remote] 입력 처리 오류:', e.message);
+      console.error('[remote] 처리 오류:', e.message);
     }
   });
 
-  ws.on('close', async () => {
-    console.log('[remote] 클라이언트 연결 해제');
-    try {
-      await context.close(); // 쿠키/세션 정리
-    } catch (_) {}
+  ws.on('close', () => {
+    viewers.delete(ws);
+    console.log('[remote] 뷰어 연결 해제');
+    // 뷰어가 모두 나가도 브라우저는 유지 (로그인/탭 보존). 스트리밍만 멈춤.
+    if (viewers.size === 0) {
+      for (const t of tabs.values()) {
+        if (t.streaming) { t.streaming = false; t.cdp.send('Page.stopScreencast').catch(() => {}); }
+      }
+    }
   });
 });
 
-// 한 요청의 오류가 서버 전체를 죽이지 않게
 process.on('uncaughtException', (e) => console.error('[uncaught]', e && e.message));
 process.on('unhandledRejection', (e) => console.error('[unhandled]', e && (e.message || e)));
