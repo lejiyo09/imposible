@@ -277,10 +277,16 @@ function startAudio() {
     const src = audioCtx.createBufferSource();
     src.buffer = buf; src.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
-    if (nextTime < now) nextTime = now + 0.05;
-    else if (nextTime - now > 0.30) nextTime = now + 0.05;
+    if (nextTime < now) nextTime = now + 0.02;      // 끊겼으면 바로 이어서
+    const ahead = nextTime - now;                   // 버퍼 깊이(초)
+    // 소리를 버리지 않고 재생 속도를 미세 조절해 부드럽게 싱크 (뚝뚝 끊김 방지)
+    let rate = 1;
+    if (ahead > 0.28) rate = 1.04;                  // 많이 밀림 → 살짝 빠르게
+    else if (ahead > 0.16) rate = 1.015;            // 조금 밀림 → 아주 살짝 빠르게
+    else if (ahead < 0.04) rate = 0.97;             // 버퍼 얕음 → 살짝 느리게 (언더런 방지)
+    src.playbackRate.value = rate;
     src.start(nextTime);
-    nextTime += buf.duration;
+    nextTime += buf.duration / rate;
   };
   soundOn = true; soundBtn.textContent = '🔊'; soundBtn.title = '소리 끄기';
 }
