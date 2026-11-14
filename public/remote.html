@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Geo-Zebra Remote</title>
+<link rel="manifest" href="/remote-manifest.json" />
+<meta name="theme-color" content="#111317" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #111317; color: #e8eaed;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #bar { display: flex; gap: 6px; padding: 8px; align-items: center; background: #1b1e24; }
+  #bar button { background: #2a2e36; color: #e8eaed; border: 0; border-radius: 8px;
+    padding: 8px 10px; font-size: 15px; cursor: pointer; }
+  #bar button:active { background: #3a3f49; }
+  #url { flex: 1; min-width: 0; background: #0d0f13; color: #e8eaed; border: 1px solid #333;
+    border-radius: 8px; padding: 9px 12px; font-size: 15px; }
+  #stage { position: relative; width: 100%; height: calc(100% - 52px);
+    display: flex; align-items: center; justify-content: center; }
+  canvas { max-width: 100%; max-height: 100%; background: #000; outline: none;
+    touch-action: none; }
+  #status { position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,.7); padding: 6px 14px; border-radius: 20px; font-size: 13px;
+    pointer-events: none; transition: opacity .3s; }
+  #status.hide { opacity: 0; }
+</style>
+</head>
+<body>
+  <div id="bar">
+    <button id="back" title="뒤로">◀</button>
+    <button id="fwd" title="앞으로">▶</button>
+    <button id="reload" title="새로고침">⟳</button>
+    <input id="url" placeholder="주소 입력 후 Enter" />
+  </div>
+  <div id="stage">
+    <canvas id="screen" width="1280" height="720" tabindex="0"></canvas>
+    <div id="status">연결 중…</div>
+  </div>
+
+<script>
+const WIDTH = 1280, HEIGHT = 720;
+const canvas = document.getElementById('screen');
+const ctx = canvas.getContext('2d');
+const urlBar = document.getElementById('url');
+const statusEl = document.getElementById('status');
+
+let ws = null, reconnectDelay = 500;
+
+function setStatus(text, autohide) {
+  statusEl.textContent = text;
+  statusEl.classList.remove('hide');
+  if (autohide) setTimeout(() => statusEl.classList.add('hide'), 800);
+}
+
+// ── WebSocket 연결 + 자동 재연결 (상시 연결 유지) ──
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/remote`);
+
+  ws.onopen = () => {
+    reconnectDelay = 500;
+    setStatus('연결됨', true);
+    canvas.focus();
+  };
+
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'frame') {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, WIDTH, HEIGHT);
+      img.src = 'data:image/jpeg;base64,' + msg.data;
+    } else if (msg.type === 'url') {
+      urlBar.value = msg.url;
+      if (msg.title) document.title = msg.title + ' — Geo-Zebra';
+    }
+  };
+
+  ws.onclose = () => {
+    setStatus('연결 끊김 — 재연결 중…');
+    // 지수 백오프로 재연결 (최대 5초)
+    setTimeout(connect, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 1.6, 5000);
+  };
+
+  ws.onerror = () => { try { ws.close(); } catch (_) {} };
+}
+connect();
+
+function send(obj) {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+}
+
+// ── 화면 좌표 변환 (캔버스 표시 크기 → 서버 1280x720 기준) ──
+function coords(e) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: Math.round((e.clientX - r.left) * (WIDTH / r.width)),
+    y: Math.round((e.clientY - r.top) * (HEIGHT / r.height)),
+  };
+}
+
+// ── 마우스 ──
+canvas.addEventListener('mousedown', (e) => {
+  canvas.focus();
+  const { x, y } = coords(e);
+  send({ type: 'down', x, y, button: e.button === 2 ? 'right' : 'left' });
+});
+canvas.addEventListener('mouseup', (e) => {
+  send({ type: 'up', button: e.button === 2 ? 'right' : 'left' });
+});
+let lastMove = 0;
+canvas.addEventListener('mousemove', (e) => {
+  const now = Date.now();
+  if (now - lastMove < 30) return;   // ~33fps로 전송 제한
+  lastMove = now;
+  const { x, y } = coords(e);
+  send({ type: 'move', x, y });
+});
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  send({ type: 'wheel', dx: e.deltaX, dy: e.deltaY });
+}, { passive: false });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ── 키보드 (캔버스에 포커스가 있을 때) ──
+canvas.addEventListener('keydown', (e) => {
+  // 인쇄 가능한 단일 문자(한글/영문/숫자/기호/스페이스)는 텍스트로
+  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault();
+    send({ type: 'text', text: e.key });
+  } else if (['Enter','Backspace','Tab','Delete','Escape',
+              'ArrowLeft','ArrowRight','ArrowUp','ArrowDown',
+              'Home','End','PageUp','PageDown'].includes(e.key)) {
+    e.preventDefault();
+    send({ type: 'press', key: e.key });
+  }
+});
+
+// ── 툴바 ──
+document.getElementById('back').onclick = () => { send({ type: 'back' }); canvas.focus(); };
+document.getElementById('fwd').onclick = () => { send({ type: 'forward' }); canvas.focus(); };
+document.getElementById('reload').onclick = () => { send({ type: 'reload' }); canvas.focus(); };
+urlBar.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    let u = urlBar.value.trim();
+    if (!/^https?:\/\//.test(u)) u = 'https://' + u;
+    send({ type: 'navigate', url: u });
+    canvas.focus();
+  }
+});
+
+// ── PWA: 앱으로 설치 가능하게 서비스 워커 등록 ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/remote-sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

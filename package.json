@@ -12,6 +12,7 @@
     "@titaniumnetwork-dev/ultraviolet": "3.2.10",
     "express": "^4.21.0",
     "jsdom": "^24.1.0",
+    "playwright": "^1.48.0",
     "ws": "^8.17.0"
   },
   "engines": {

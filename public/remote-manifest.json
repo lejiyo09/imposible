@@ -1,0 +1,15 @@
+{
+  "name": "Geo-Zebra Remote",
+  "short_name": "Geo-Zebra",
+  "description": "원격 브라우저 - 서버에서 실제 브라우저를 실행",
+  "start_url": "/remote.html",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#111317",
+  "theme_color": "#111317",
+  "icons": [
+    { "src": "/remote-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/remote-icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/remote-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
