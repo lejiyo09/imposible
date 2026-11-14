@@ -32,6 +32,7 @@
     <button id="fwd" title="앞으로">▶</button>
     <button id="reload" title="새로고침">⟳</button>
     <input id="url" placeholder="주소 입력 후 Enter" />
+    <button id="sound" title="소리 켜기">🔇</button>
   </div>
   <div id="stage">
     <canvas id="screen" width="1280" height="720" tabindex="0"></canvas>
@@ -149,6 +150,49 @@ urlBar.addEventListener('keydown', (e) => {
     canvas.focus();
   }
 });
+
+// ── 소리: 원격 브라우저 오디오를 크롬북에서 재생 (오멘에서는 안 남) ──
+// 브라우저 자동재생 정책 때문에 반드시 사용자가 버튼을 눌러야 시작됨
+let audioCtx = null, audioWs = null, nextTime = 0, leftover = new Uint8Array(0), soundOn = false;
+const soundBtn = document.getElementById('sound');
+soundBtn.onclick = () => { soundOn ? stopAudio() : startAudio(); };
+
+function startAudio() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+  audioCtx.resume();
+  nextTime = audioCtx.currentTime;
+  leftover = new Uint8Array(0);
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  audioWs = new WebSocket(`${proto}://${location.host}/audio`);
+  audioWs.binaryType = 'arraybuffer';
+  audioWs.onmessage = (ev) => {
+    // 서버가 보내는 PCM 바이트를 누적 후 4바이트(스테레오 16bit) 단위로만 처리
+    const inc = new Uint8Array(ev.data);
+    const merged = new Uint8Array(leftover.length + inc.length);
+    merged.set(leftover); merged.set(inc, leftover.length);
+    const usable = merged.length - (merged.length % 4);
+    leftover = merged.slice(usable);
+    if (!usable) return;
+    const i16 = new Int16Array(merged.buffer, 0, usable / 2);
+    const frames = usable / 4;
+    const buf = audioCtx.createBuffer(2, frames, 48000);
+    const L = buf.getChannelData(0), R = buf.getChannelData(1);
+    for (let i = 0; i < frames; i++) { L[i] = i16[i*2] / 32768; R[i] = i16[i*2+1] / 32768; }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf; src.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+    if (nextTime < now) nextTime = now + 0.08; // 밀리면 재동기화
+    src.start(nextTime);
+    nextTime += buf.duration;
+  };
+  soundOn = true; soundBtn.textContent = '🔊'; soundBtn.title = '소리 끄기';
+}
+function stopAudio() {
+  if (audioWs) { try { audioWs.close(); } catch (_) {} audioWs = null; }
+  if (audioCtx) { try { audioCtx.close(); } catch (_) {} audioCtx = null; }
+  leftover = new Uint8Array(0); soundOn = false;
+  soundBtn.textContent = '🔇'; soundBtn.title = '소리 켜기';
+}
 
 // ── PWA: 앱으로 설치 가능하게 서비스 워커 등록 ──
 if ('serviceWorker' in navigator) {

@@ -7,12 +7,16 @@
 
 const express = require('express');
 const path = require('path');
+const { spawn } = require('child_process');
 const { WebSocketServer } = require('ws');
 const { chromium } = require('playwright');
 
 const PORT = process.env.REMOTE_PORT || 3001;
 const VIEWPORT = { width: 1280, height: 720 };
 const START_URL = 'https://www.google.com';
+// 가상 오디오 케이블의 "녹음(출력)" 장치 이름. 다르면 AUDIO_DEVICE 환경변수로 지정.
+// 장치 목록 확인: ffmpeg -list_devices true -f dshow -i dummy
+const AUDIO_DEVICE = process.env.AUDIO_DEVICE || 'CABLE Output (VB-Audio Virtual Cable)';
 
 // ── 브라우저는 서버당 1개만 띄우고 재사용 ──
 let browser;
@@ -20,7 +24,7 @@ async function getBrowser() {
   if (!browser || !browser.isConnected()) {
     console.log('[remote] Chromium 실행...');
     const opts = {
-      headless: true,
+      headless: false, // 소리를 오디오 장치로 내보내려면 headful 필요
       args: [
         '--disable-gpu',
         '--disable-dev-shm-usage',
@@ -52,7 +56,49 @@ const server = app.listen(PORT, () => {
   console.log(`Remote browser on http://localhost:${PORT}/remote.html`);
 });
 
-const wss = new WebSocketServer({ server, path: '/remote' });
+// ── 오디오 캡처: ffmpeg로 가상 케이블의 소리를 받아 /audio 클라이언트로 중계 ──
+const audioClients = new Set();
+let ffmpeg = null;
+function startAudioCapture() {
+  if (ffmpeg) return;
+  console.log('[audio] ffmpeg 시작 — 장치:', AUDIO_DEVICE);
+  ffmpeg = spawn('ffmpeg', [
+    '-f', 'dshow',
+    '-i', 'audio=' + AUDIO_DEVICE,
+    '-ac', '2', '-ar', '48000',
+    '-fflags', 'nobuffer', '-flags', 'low_delay',
+    '-f', 's16le', '-', // 무압축 PCM을 표준출력으로
+  ]);
+  ffmpeg.stdout.on('data', (chunk) => {
+    for (const c of audioClients) if (c.readyState === 1) c.send(chunk);
+  });
+  ffmpeg.stderr.on('data', () => {}); // ffmpeg 로그는 버림
+  ffmpeg.on('close', (code) => { console.log('[audio] ffmpeg 종료', code); ffmpeg = null; });
+  ffmpeg.on('error', (e) => {
+    console.error('[audio] ffmpeg 오류:', e.message, '— ffmpeg 설치됐는지 확인');
+    ffmpeg = null;
+  });
+}
+
+// WebSocket 두 경로: /remote (화면·입력), /audio (소리)
+const wss = new WebSocketServer({ noServer: true });
+const audioWss = new WebSocketServer({ noServer: true });
+
+audioWss.on('connection', (ws) => {
+  audioClients.add(ws);
+  startAudioCapture();
+  ws.on('close', () => audioClients.delete(ws));
+});
+
+server.on('upgrade', (req, socket, head) => {
+  if (req.url.startsWith('/audio')) {
+    audioWss.handleUpgrade(req, socket, head, (ws) => audioWss.emit('connection', ws, req));
+  } else if (req.url.startsWith('/remote')) {
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+  } else {
+    socket.destroy();
+  }
+});
 
 wss.on('connection', async (ws) => {
   console.log('[remote] 클라이언트 연결됨');
