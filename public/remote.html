@@ -65,6 +65,16 @@ let panes = [];            // 패널 객체들
 let focused = 0;           // 포커스된 패널 index
 let layout = 1;
 
+// 접속 비밀번호 (한 번 입력하면 저장됨)
+let token = '';
+try { token = localStorage.getItem('geo_token') || ''; } catch (_) {}
+function askToken() {
+  const t = (prompt('Geo-Zebra 비밀번호를 입력하세요') || '').trim();
+  if (t) { token = t; try { localStorage.setItem('geo_token', t); } catch (_) {} }
+  return t;
+}
+if (!token) askToken();
+
 // 패널 크기에 맞춰 캔버스/뷰포트 크기 조정 (검은 여백 없이 꽉 차게)
 function fitPane(pane) {
   if (!pane || pane.tabId == null) return;
@@ -215,7 +225,7 @@ document.querySelectorAll('.btn[data-l]').forEach((b) => { b.onclick = () => set
 // ── WebSocket ──
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}/remote`);
+  ws = new WebSocket(`${proto}://${location.host}/remote?token=${encodeURIComponent(token)}`);
   ws.onopen = () => { reconnectDelay = 500; kbd.focus(); };
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
@@ -240,7 +250,10 @@ function connect() {
       for (const p of panes) if (p.tabId === msg.id) p.canvas.style.cursor = msg.cursor || 'default';
     }
   };
-  ws.onclose = () => { setTimeout(connect, reconnectDelay); reconnectDelay = Math.min(reconnectDelay * 1.6, 5000); };
+  ws.onclose = (e) => {
+    if (e && e.code === 4401) { try { localStorage.removeItem('geo_token'); } catch (_) {} askToken(); } // 비번 틀림 → 다시 입력
+    setTimeout(connect, reconnectDelay); reconnectDelay = Math.min(reconnectDelay * 1.6, 5000);
+  };
   ws.onerror = () => { try { ws.close(); } catch (_) {} };
 }
 function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
@@ -279,7 +292,7 @@ function startAudio() {
   audioCtx.resume();
   nextTime = audioCtx.currentTime; leftover = new Uint8Array(0);
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  audioWs = new WebSocket(`${proto}://${location.host}/audio`);
+  audioWs = new WebSocket(`${proto}://${location.host}/audio?token=${encodeURIComponent(token)}`);
   audioWs.binaryType = 'arraybuffer';
   audioWs.onmessage = (ev) => {
     const inc = new Uint8Array(ev.data);

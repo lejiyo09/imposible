@@ -7,6 +7,7 @@
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const { spawn, execSync } = require('child_process');
 const { WebSocketServer } = require('ws');
 const { chromium } = require('playwright');
@@ -19,6 +20,17 @@ const AUDIO_DEVICE = process.env.AUDIO_DEVICE || 'CABLE Output(VB-Audio Virtual 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+// ── 접속 비밀번호 (주소만 아는 사람이 쓰지 못하게) ──
+// GEO_PASSWORD 환경변수 > secret.txt 파일 > 자동 생성 순
+const SECRET_FILE = path.join(__dirname, 'secret.txt');
+let ACCESS = (process.env.GEO_PASSWORD || '').trim();
+if (!ACCESS) { try { ACCESS = fs.readFileSync(SECRET_FILE, 'utf8').trim(); } catch (_) {} }
+if (!ACCESS) {
+  ACCESS = Math.random().toString(36).slice(2, 10);
+  try { fs.writeFileSync(SECRET_FILE, ACCESS); } catch (_) {}
+}
+console.log('[auth] 접속 비밀번호:', ACCESS, '  (secret.txt 파일이나 GEO_PASSWORD 로 변경 가능)');
 
 // ── 공유 브라우저 상태 ──
 let context = null;
@@ -195,9 +207,15 @@ const wss = new WebSocketServer({ noServer: true });
 const audioWss = new WebSocketServer({ noServer: true });
 audioWss.on('connection', (ws) => { audioClients.add(ws); startAudioCapture(); ws.on('close', () => audioClients.delete(ws)); });
 server.on('upgrade', (req, socket, head) => {
-  if (req.url.startsWith('/audio')) audioWss.handleUpgrade(req, socket, head, (ws) => audioWss.emit('connection', ws, req));
-  else if (req.url.startsWith('/remote')) wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
-  else socket.destroy();
+  const u = new URL(req.url, 'http://x');
+  const ok = (u.searchParams.get('token') || '') === ACCESS;  // 비밀번호 확인
+  const target = u.pathname.startsWith('/audio') ? audioWss
+               : u.pathname.startsWith('/remote') ? wss : null;
+  if (!target) { socket.destroy(); return; }
+  target.handleUpgrade(req, socket, head, (ws) => {
+    if (!ok) { try { ws.close(4401, 'unauthorized'); } catch (_) {} return; } // 비번 틀리면 거절
+    target.emit('connection', ws, req);
+  });
 });
 
 wss.on('connection', async (ws) => {
