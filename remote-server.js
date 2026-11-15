@@ -52,7 +52,7 @@ function recomputeStreaming() {
       t.streaming = true;
       t.cdp.send('Page.startScreencast', {
         format: 'jpeg', quality: 55,
-        maxWidth: VIEWPORT.width, maxHeight: VIEWPORT.height, everyNthFrame: 1,
+        maxWidth: t.w || VIEWPORT.width, maxHeight: t.h || VIEWPORT.height, everyNthFrame: 1,
       }).catch(() => {});
     } else if (!should && t.streaming) {
       t.streaming = false;
@@ -68,7 +68,7 @@ async function attachPage(page) {
   const id = ++nextTabId;
   let cdp;
   try { cdp = await context.newCDPSession(page); } catch (_) { return; }
-  const entry = { id, page, cdp, streaming: false };
+  const entry = { id, page, cdp, streaming: false, w: VIEWPORT.width, h: VIEWPORT.height };
   tabs.set(id, entry);
 
   cdp.on('Page.screencastFrame', async (frame) => {
@@ -243,6 +243,21 @@ wss.on('connection', async (ws) => {
       if (msg.type === 'closetab') {
         const t = tabs.get(msg.id);
         if (t) await t.page.close().catch(() => {});
+        return;
+      }
+      if (msg.type === 'resize') {
+        const t = tabs.get(msg.tab);
+        if (t) {
+          const w = Math.max(400, Math.min(1920, msg.width | 0));
+          const h = Math.max(300, Math.min(1080, msg.height | 0));
+          t.w = w; t.h = h;
+          try { await t.page.setViewportSize({ width: w, height: h }); } catch (_) {}
+          if (t.streaming) {               // 새 크기로 다시 스트리밍
+            try { await t.cdp.send('Page.stopScreencast'); } catch (_) {}
+            t.streaming = false;
+            recomputeStreaming();
+          }
+        }
         return;
       }
       // 이하 입력/탐색은 대상 탭(msg.tab)에 적용

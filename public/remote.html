@@ -65,6 +65,20 @@ let panes = [];            // 패널 객체들
 let focused = 0;           // 포커스된 패널 index
 let layout = 1;
 
+// 패널 크기에 맞춰 캔버스/뷰포트 크기 조정 (검은 여백 없이 꽉 차게)
+function fitPane(pane) {
+  if (!pane || pane.tabId == null) return;
+  const wrap = pane.canvas.parentElement;
+  let w = Math.round(wrap.clientWidth), h = Math.round(wrap.clientHeight);
+  if (w < 50 || h < 50) return;
+  w = Math.max(400, Math.min(1920, w)); h = Math.max(300, Math.min(1080, h));
+  w -= w % 2; h -= h % 2;
+  if (pane.canvas.width !== w || pane.canvas.height !== h) {
+    pane.canvas.width = w; pane.canvas.height = h;
+    send({ type: 'resize', tab: pane.tabId, width: w, height: h });
+  }
+}
+
 // ── 패널 생성 ──
 function makePane(idx) {
   const el = document.createElement('div');
@@ -82,14 +96,18 @@ function makePane(idx) {
   const urlInput = el.querySelector('.purl');
   const pane = { el, canvas, ctx, urlInput, tabId: null };
 
+  // 칸 크기 바뀌면(레이아웃/창 크기) 뷰포트 다시 맞춤
+  const ro = new ResizeObserver(() => { clearTimeout(pane._rt); pane._rt = setTimeout(() => fitPane(pane), 150); });
+  ro.observe(el.querySelector('.pwrap'));
+
   // 패널 클릭 → 포커스
   el.addEventListener('mousedown', () => setFocus(idx), true);
 
   // 입력 (대상 = 이 패널의 탭)
   function coords(e) {
     const r = canvas.getBoundingClientRect();
-    return { x: Math.round((e.clientX - r.left) * (WIDTH / r.width)),
-             y: Math.round((e.clientY - r.top) * (HEIGHT / r.height)) };
+    return { x: Math.round((e.clientX - r.left) * (canvas.width / r.width)),
+             y: Math.round((e.clientY - r.top) * (canvas.height / r.height)) };
   }
   canvas.addEventListener('pointerdown', (e) => {
     e.preventDefault(); setFocus(idx); kbd.focus();
@@ -164,6 +182,7 @@ function refreshPanes() {
     p.el.classList.toggle('focused', i === focused);
     const tab = tabList.find((t) => t.id === p.tabId);
     if (tab && document.activeElement !== p.urlInput) p.urlInput.value = tab.url;
+    fitPane(p); // 배정/갱신 시 칸 크기에 맞춰 뷰포트 조정
   });
 }
 
@@ -202,7 +221,7 @@ function connect() {
     const msg = JSON.parse(ev.data);
     if (msg.type === 'frame') {
       const img = new Image();
-      img.onload = () => { for (const p of panes) if (p.tabId === msg.id) p.ctx.drawImage(img, 0, 0, WIDTH, HEIGHT); };
+      img.onload = () => { for (const p of panes) if (p.tabId === msg.id) p.ctx.drawImage(img, 0, 0, p.canvas.width, p.canvas.height); };
       img.src = 'data:image/jpeg;base64,' + msg.data;
     } else if (msg.type === 'tabs') {
       tabList = msg.tabs;
