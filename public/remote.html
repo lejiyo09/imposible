@@ -309,7 +309,8 @@ function startAudio() {
     const src = audioCtx.createBufferSource();
     src.buffer = buf; src.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
-    if (nextTime < now) nextTime = now + 0.06;  // 언더런 때만 약간 리드. 속도는 항상 1배(울렁임 없음)
+    if (nextTime < now) nextTime = now + 0.06;              // 끊김 → 바로 이어서
+    else if (nextTime - now > 0.5) nextTime = now + 0.12;   // 많이 밀림(드리프트) → 1회만 조용히 재동기화
     src.start(nextTime);
     nextTime += buf.duration;
   };
