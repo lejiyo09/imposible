@@ -7,7 +7,7 @@
 
 const express = require('express');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const { WebSocketServer } = require('ws');
 const { chromium } = require('playwright');
 
@@ -51,7 +51,7 @@ function recomputeStreaming() {
     if (should && !t.streaming) {
       t.streaming = true;
       t.cdp.send('Page.startScreencast', {
-        format: 'jpeg', quality: 55,
+        format: 'jpeg', quality: 45,  // 터널(인터넷) 속도 위해 화질 다소 낮춤
         maxWidth: t.w || VIEWPORT.width, maxHeight: t.h || VIEWPORT.height, everyNthFrame: 1,
       }).catch(() => {});
     } else if (!should && t.streaming) {
@@ -304,6 +304,19 @@ wss.on('connection', async (ws) => {
     // 브라우저는 종료하지 않고 유지 (재실행 시 프로필 잠금 충돌 방지). 스트리밍만 멈춤.
   });
 });
+
+// 자동 업데이트: GitHub에 새 커밋이 있고 접속자가 없으면 종료 → 배치가 git pull 후 재시작
+setInterval(() => {
+  try {
+    execSync('git fetch', { cwd: __dirname, stdio: 'ignore', timeout: 20000 });
+    const local = execSync('git rev-parse HEAD', { cwd: __dirname }).toString().trim();
+    const remote = execSync('git rev-parse origin/main', { cwd: __dirname }).toString().trim();
+    if (local !== remote && viewers.size === 0) {
+      console.log('[update] 새 버전 발견 — 재시작하여 적용');
+      process.exit(0);
+    }
+  } catch (_) {}
+}, 5 * 60 * 1000); // 5분마다 확인
 
 process.on('uncaughtException', (e) => console.error('[uncaught]', e && e.message));
 process.on('unhandledRejection', (e) => console.error('[unhandled]', e && (e.message || e)));
