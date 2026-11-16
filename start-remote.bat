@@ -4,7 +4,8 @@ REM 서버가 죽으면 3초 뒤 자동 재시작
 cd /d "%~dp0"
 :loop
 echo [%date% %time%] updating from GitHub...
-git pull
+git fetch origin main
+git reset --hard origin/main
 echo [%date% %time%] Geo-Zebra server starting...
 node remote-server.js
 echo [%date% %time%] server stopped - restarting in 3s
