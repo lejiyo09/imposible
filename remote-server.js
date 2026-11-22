@@ -84,8 +84,17 @@ async function attachPage(page) {
   tabs.set(id, entry);
 
   cdp.on('Page.screencastFrame', async (frame) => {
-    const s = JSON.stringify({ type: 'frame', id, data: frame.data });
-    for (const v of viewers) if (v.readyState === 1 && v.visible && v.visible.has(id)) v.send(s);
+    // [4바이트 탭id][jpeg] 바이너리로 전송 (base64/JSON 오버헤드 제거)
+    const jpeg = Buffer.from(frame.data, 'base64');
+    const header = Buffer.allocUnsafe(4);
+    header.writeUInt32BE(id, 0);
+    const packet = Buffer.concat([header, jpeg]);
+    for (const v of viewers) {
+      // 네트워크가 밀려있으면(>512KB 대기) 이 프레임은 건너뜀 → 지연 누적 방지 (항상 최신만)
+      if (v.readyState === 1 && v.visible && v.visible.has(id) && v.bufferedAmount < 524288) {
+        v.send(packet);
+      }
+    }
     try { await cdp.send('Page.screencastFrameAck', { sessionId: frame.sessionId }); } catch (_) {}
   });
 

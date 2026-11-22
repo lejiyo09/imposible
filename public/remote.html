@@ -227,13 +227,16 @@ function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/remote?token=${encodeURIComponent(token)}`);
   ws.onopen = () => { reconnectDelay = 500; kbd.focus(); startHeartbeat(); };
+  ws.binaryType = 'arraybuffer';
   ws.onmessage = (ev) => {
+    if (typeof ev.data !== 'string') {            // 바이너리 프레임: [4바이트 탭id][jpeg]
+      const id = new DataView(ev.data).getUint32(0);
+      const bytes = new Uint8Array(ev.data, 4);
+      for (const p of panes) if (p.tabId === id) drawFrame(p, bytes);
+      return;
+    }
     const msg = JSON.parse(ev.data);
-    if (msg.type === 'frame') {
-      const img = new Image();
-      img.onload = () => { for (const p of panes) if (p.tabId === msg.id) p.ctx.drawImage(img, 0, 0, p.canvas.width, p.canvas.height); };
-      img.src = 'data:image/jpeg;base64,' + msg.data;
-    } else if (msg.type === 'tabs') {
+    if (msg.type === 'tabs') {
       tabList = msg.tabs;
       // 사라진 탭이 배정돼 있으면 해제
       for (const p of panes) if (p.tabId != null && !tabList.find((t) => t.id === p.tabId)) p.tabId = null;
@@ -258,6 +261,18 @@ function connect() {
   ws.onerror = () => { try { ws.close(); } catch (_) {} };
 }
 function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+
+// 프레임 그리기: createImageBitmap(빠른 디코딩) + 최신 우선(디코딩 중 들어온 건 최신만 남기고 버림 → 지연 방지)
+function drawFrame(p, bytes) {
+  if (p._decoding) { p._pending = bytes; return; }
+  p._decoding = true;
+  createImageBitmap(new Blob([bytes], { type: 'image/jpeg' })).then((bmp) => {
+    p.ctx.drawImage(bmp, 0, 0, p.canvas.width, p.canvas.height);
+    if (bmp.close) bmp.close();
+    p._decoding = false;
+    if (p._pending) { const n = p._pending; p._pending = null; drawFrame(p, n); }
+  }).catch(() => { p._decoding = false; });
+}
 
 // 하트비트: 25초마다 신호 → 연결이 안 끊기게 유지 (9:30 DNS 차단 전에 연결해두면 밤새 유지됨)
 let hb = null;
