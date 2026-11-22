@@ -226,7 +226,7 @@ document.querySelectorAll('.btn[data-l]').forEach((b) => { b.onclick = () => set
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/remote?token=${encodeURIComponent(token)}`);
-  ws.onopen = () => { reconnectDelay = 500; kbd.focus(); };
+  ws.onopen = () => { reconnectDelay = 500; kbd.focus(); startHeartbeat(); };
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.type === 'frame') {
@@ -251,12 +251,18 @@ function connect() {
     }
   };
   ws.onclose = (e) => {
+    stopHeartbeat();
     if (e && e.code === 4401) { try { localStorage.removeItem('geo_token'); } catch (_) {} askToken(); } // 비번 틀림 → 다시 입력
     setTimeout(connect, reconnectDelay); reconnectDelay = Math.min(reconnectDelay * 1.6, 5000);
   };
   ws.onerror = () => { try { ws.close(); } catch (_) {} };
 }
 function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+
+// 하트비트: 25초마다 신호 → 연결이 안 끊기게 유지 (9:30 DNS 차단 전에 연결해두면 밤새 유지됨)
+let hb = null;
+function startHeartbeat() { stopHeartbeat(); hb = setInterval(() => send({ type: 'ping' }), 25000); }
+function stopHeartbeat() { if (hb) { clearInterval(hb); hb = null; } }
 
 // ── 키보드 (포커스된 패널의 탭으로, 한글 IME 지원) ──
 let composing = false;

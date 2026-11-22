@@ -278,6 +278,7 @@ wss.on('connection', async (ws) => {
         }
         return;
       }
+      if (msg.type === 'ping') { try { ws.send(JSON.stringify({ type: 'pong' })); } catch (_) {} return; }
       // 이하 입력/탐색은 대상 탭(msg.tab)에 적용
       const t = tabs.get(msg.tab);
       if (!t) return;
